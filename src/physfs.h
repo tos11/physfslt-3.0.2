@@ -223,6 +223,8 @@
 extern "C" {
 #endif
 
+#define NUM_DRIVES 5
+
 #if defined(PHYSFS_DECL)
 /* do nothing. */
 #elif defined(_MSC_VER)
@@ -479,7 +481,7 @@ typedef struct PHYSFS_Version
  * PHYSFS_Version linked;
  *
  * PHYSFS_VERSION(&compiled);
- * PHYSFS_getLinkedVersion(&linked);
+ * PHYSFS_getLinkedVersion(&linked, const unsigned char dv);
  * printf("We compiled against PhysFS version %d.%d.%d ...\n",
  *           compiled.major, compiled.minor, compiled.patch);
  * printf("But we linked against PhysFS version %d.%d.%d.\n",
@@ -490,7 +492,7 @@ typedef struct PHYSFS_Version
  *
  * \sa PHYSFS_VERSION
  */
-PHYSFS_DECL void PHYSFS_getLinkedVersion(PHYSFS_Version *ver);
+PHYSFS_DECL void PHYSFS_getLinkedVersion(PHYSFS_Version *ver, const unsigned char dv);
 
 
 /**
@@ -513,7 +515,7 @@ PHYSFS_DECL void PHYSFS_getLinkedVersion(PHYSFS_Version *ver);
  * \sa PHYSFS_deinit
  * \sa PHYSFS_isInit
  */
-PHYSFS_DECL int PHYSFS_init(const char *argv0);
+PHYSFS_DECL int PHYSFS_init(const char *argv0, const unsigned char dv);
 
 
 /**
@@ -542,7 +544,7 @@ PHYSFS_DECL int PHYSFS_init(const char *argv0);
  * \sa PHYSFS_init
  * \sa PHYSFS_isInit
  */
-PHYSFS_DECL int PHYSFS_deinit(void);
+PHYSFS_DECL int PHYSFS_deinit(const unsigned char dv);
 
 
 /**
@@ -598,7 +600,7 @@ PHYSFS_DECL const PHYSFS_ArchiveInfo **PHYSFS_supportedArchiveTypes(void);
  * \sa PHYSFS_enumerateFiles
  * \sa PHYSFS_getSearchPath
  */
-PHYSFS_DECL void PHYSFS_freeList(void *listVar);
+PHYSFS_DECL void PHYSFS_freeList(void *listVar, const unsigned char dv);
 
 
 /**
@@ -651,7 +653,7 @@ PHYSFS_DECL void PHYSFS_freeList(void *listVar);
  * \sa PHYSFS_getLastErrorCode
  * \sa PHYSFS_getErrorByCode
  */
-PHYSFS_DECL const char *PHYSFS_getLastError(void) PHYSFS_DEPRECATED;
+PHYSFS_DECL const char *PHYSFS_getLastError(const unsigned char dv) PHYSFS_DEPRECATED;
 
 
 /**
@@ -667,7 +669,7 @@ PHYSFS_DECL const char *PHYSFS_getLastError(void) PHYSFS_DEPRECATED;
  *
  *   \return READ ONLY null-terminated string of platform's dir separator.
  */
-PHYSFS_DECL const char *PHYSFS_getDirSeparator(void);
+PHYSFS_DECL const char *PHYSFS_getDirSeparator(const unsigned char dv);
 
 
 /**
@@ -705,7 +707,7 @@ PHYSFS_DECL const char *PHYSFS_getDirSeparator(void);
  *
  * \sa PHYSFS_symbolicLinksPermitted
  */
-PHYSFS_DECL void PHYSFS_permitSymbolicLinks(int allow);
+PHYSFS_DECL void PHYSFS_permitSymbolicLinks(int allow, const unsigned char dv);
 
 
 /**
@@ -729,13 +731,13 @@ PHYSFS_DECL void PHYSFS_permitSymbolicLinks(int allow);
  *  end of the list:
  *
  * \code
- * char **cds = PHYSFS_getCdRomDirs();
+ * char **cds = PHYSFS_getCdRomDirs(, const unsigned char dv);
  * char **i;
  *
  * for (i = cds; *i != NULL; i++)
  *     printf("cdrom dir [%s] is available.\n", *i);
  *
- * PHYSFS_freeList(cds);
+ * PHYSFS_freeList(cds, const unsigned char dv);
  * \endcode
  *
  * This call may block while drives spin up. Be forewarned.
@@ -747,7 +749,7 @@ PHYSFS_DECL void PHYSFS_permitSymbolicLinks(int allow);
  *
  * \sa PHYSFS_getCdRomDirsCallback
  */
-PHYSFS_DECL char **PHYSFS_getCdRomDirs(void);
+PHYSFS_DECL char **PHYSFS_getCdRomDirs(const unsigned char dv);
 
 
 /**
@@ -766,7 +768,7 @@ PHYSFS_DECL char **PHYSFS_getCdRomDirs(void);
  *
  * \sa PHYSFS_getPrefDir
  */
-PHYSFS_DECL const char *PHYSFS_getBaseDir(void);
+PHYSFS_DECL const char *PHYSFS_getBaseDir(const unsigned char dv);
 
 
 /**
@@ -789,7 +791,7 @@ PHYSFS_DECL const char *PHYSFS_getBaseDir(void);
  * \sa PHYSFS_getBaseDir
  * \sa PHYSFS_getPrefDir
  */
-PHYSFS_DECL const char *PHYSFS_getUserDir(void) PHYSFS_DEPRECATED;
+PHYSFS_DECL const char *PHYSFS_getUserDir(const unsigned char dv) PHYSFS_DEPRECATED;
 
 
 /**
@@ -803,7 +805,7 @@ PHYSFS_DECL const char *PHYSFS_getUserDir(void) PHYSFS_DEPRECATED;
  *
  * \sa PHYSFS_setWriteDir
  */
-PHYSFS_DECL const char *PHYSFS_getWriteDir(void);
+PHYSFS_DECL const char *PHYSFS_getWriteDir(const unsigned char dv);
 
 
 /**
@@ -825,7 +827,7 @@ PHYSFS_DECL const char *PHYSFS_getWriteDir(void);
  *
  * \sa PHYSFS_getWriteDir
  */
-PHYSFS_DECL int PHYSFS_setWriteDir(const char *newDir);
+PHYSFS_DECL int PHYSFS_setWriteDir(const char *newDir, const unsigned char dv);
 
 
 /**
@@ -838,7 +840,7 @@ PHYSFS_DECL int PHYSFS_setWriteDir(const char *newDir);
  * This function is equivalent to:
  *
  * \code
- *  PHYSFS_mount(newDir, NULL, appendToPath);
+ *  PHYSFS_mount(newDir, NULL, appendToPath, const unsigned char dv);
  * \endcode
  *
  * You must use this and not PHYSFS_mount if binary compatibility with
@@ -848,7 +850,7 @@ PHYSFS_DECL int PHYSFS_setWriteDir(const char *newDir);
  * \sa PHYSFS_removeFromSearchPath
  * \sa PHYSFS_getSearchPath
  */
-PHYSFS_DECL int PHYSFS_addToSearchPath(const char *newDir, int appendToPath)
+PHYSFS_DECL int PHYSFS_addToSearchPath(const char *newDir, int appendToPath, const unsigned char dv)
                                         PHYSFS_DEPRECATED;
 
 /**
@@ -865,7 +867,7 @@ PHYSFS_DECL int PHYSFS_addToSearchPath(const char *newDir, int appendToPath)
  * This function is equivalent to:
  *
  * \code
- *  PHYSFS_unmount(oldDir);
+ *  PHYSFS_unmount(oldDir, const unsigned char dv);
  * \endcode
  *
  * You must use this and not PHYSFS_unmount if binary compatibility with
@@ -875,7 +877,7 @@ PHYSFS_DECL int PHYSFS_addToSearchPath(const char *newDir, int appendToPath)
  * \sa PHYSFS_getSearchPath
  * \sa PHYSFS_unmount
  */
-PHYSFS_DECL int PHYSFS_removeFromSearchPath(const char *oldDir)
+PHYSFS_DECL int PHYSFS_removeFromSearchPath(const char *oldDir, const unsigned char dv)
                                             PHYSFS_DEPRECATED;
 
 
@@ -905,7 +907,7 @@ PHYSFS_DECL int PHYSFS_removeFromSearchPath(const char *oldDir)
  * \sa PHYSFS_addToSearchPath
  * \sa PHYSFS_removeFromSearchPath
  */
-PHYSFS_DECL char **PHYSFS_getSearchPath(void);
+PHYSFS_DECL char **PHYSFS_getSearchPath(const unsigned char dv);
 
 
 /**
@@ -970,7 +972,7 @@ PHYSFS_DECL int PHYSFS_setSaneConfig(const char *organization,
                                      const char *appName,
                                      const char *archiveExt,
                                      int includeCdRoms,
-                                     int archivesFirst);
+                                     int archivesFirst, const unsigned char dv);
 
 
 /* Directory management stuff ... */
@@ -996,7 +998,7 @@ PHYSFS_DECL int PHYSFS_setSaneConfig(const char *organization,
  *
  * \sa PHYSFS_delete
  */
-PHYSFS_DECL int PHYSFS_mkdir(const char *dirName);
+PHYSFS_DECL int PHYSFS_mkdir(const char *dirName, const unsigned char dv);
 
 
 /**
@@ -1029,7 +1031,7 @@ PHYSFS_DECL int PHYSFS_mkdir(const char *dirName);
  *  \return nonzero on success, zero on error. Use PHYSFS_getLastErrorCode()
  *          to obtain the specific error.
  */
-PHYSFS_DECL int PHYSFS_delete(const char *filename);
+PHYSFS_DECL int PHYSFS_delete(const char *filename, const unsigned char dv);
 
 
 /**
@@ -1062,7 +1064,7 @@ PHYSFS_DECL int PHYSFS_delete(const char *filename);
  *    \return READ ONLY string of element of search path containing the
  *             the file in question. NULL if not found.
  */
-PHYSFS_DECL const char *PHYSFS_getRealDir(const char *filename);
+PHYSFS_DECL const char *PHYSFS_getRealDir(const char *filename, const unsigned char dv);
 
 
 /**
@@ -1086,13 +1088,13 @@ PHYSFS_DECL const char *PHYSFS_getRealDir(const char *filename);
  *  that has a "savegames" subdirectory with "w.sav", then the following code:
  *
  * \code
- * char **rc = PHYSFS_enumerateFiles("savegames");
+ * char **rc = PHYSFS_enumerateFiles("savegames",const unsigned char dv);
  * char **i;
  *
  * for (i = rc; *i != NULL; i++)
  *     printf(" * We've got [%s].\n", *i);
  *
- * PHYSFS_freeList(rc);
+ * PHYSFS_freeList(rc, const unsigned char dv);
  * \endcode
  *
  *  \...will print:
@@ -1116,7 +1118,7 @@ PHYSFS_DECL const char *PHYSFS_getRealDir(const char *filename);
  *
  * \sa PHYSFS_enumerate
  */
-PHYSFS_DECL char **PHYSFS_enumerateFiles(const char *dir);
+PHYSFS_DECL char **PHYSFS_enumerateFiles(const char *dir,const unsigned char dv);
 
 
 /**
@@ -1133,7 +1135,7 @@ PHYSFS_DECL char **PHYSFS_enumerateFiles(const char *dir);
  *    \param fname filename in platform-independent notation.
  *   \return non-zero if filename exists. zero otherwise.
  */
-PHYSFS_DECL int PHYSFS_exists(const char *fname);
+PHYSFS_DECL int PHYSFS_exists(const char *fname, const unsigned char dv);
 
 
 /**
@@ -1156,7 +1158,7 @@ PHYSFS_DECL int PHYSFS_exists(const char *fname);
  * \sa PHYSFS_stat
  * \sa PHYSFS_exists
  */
-PHYSFS_DECL int PHYSFS_isDirectory(const char *fname) PHYSFS_DEPRECATED;
+PHYSFS_DECL int PHYSFS_isDirectory(const char *fname, const unsigned char dv) PHYSFS_DEPRECATED;
 
 
 /**
@@ -1179,7 +1181,7 @@ PHYSFS_DECL int PHYSFS_isDirectory(const char *fname) PHYSFS_DEPRECATED;
  * \sa PHYSFS_stat
  * \sa PHYSFS_exists
  */
-PHYSFS_DECL int PHYSFS_isSymbolicLink(const char *fname) PHYSFS_DEPRECATED;
+PHYSFS_DECL int PHYSFS_isSymbolicLink(const char *fname, const unsigned char dv) PHYSFS_DEPRECATED;
 
 
 /**
@@ -1203,7 +1205,7 @@ PHYSFS_DECL int PHYSFS_isSymbolicLink(const char *fname) PHYSFS_DEPRECATED;
  *
  * \sa PHYSFS_stat
  */
-PHYSFS_DECL PHYSFS_sint64 PHYSFS_getLastModTime(const char *filename)
+PHYSFS_DECL PHYSFS_sint64 PHYSFS_getLastModTime(const char *filename, const unsigned char dv)
                                                 PHYSFS_DEPRECATED;
 
 
@@ -1231,7 +1233,7 @@ PHYSFS_DECL PHYSFS_sint64 PHYSFS_getLastModTime(const char *filename)
  * \sa PHYSFS_write
  * \sa PHYSFS_close
  */
-PHYSFS_DECL PHYSFS_File *PHYSFS_openWrite(const char *filename);
+PHYSFS_DECL PHYSFS_File *PHYSFS_openWrite(const char *filename, const unsigned char dv);
 
 
 /**
@@ -1257,7 +1259,7 @@ PHYSFS_DECL PHYSFS_File *PHYSFS_openWrite(const char *filename);
  * \sa PHYSFS_write
  * \sa PHYSFS_close
  */
-PHYSFS_DECL PHYSFS_File *PHYSFS_openAppend(const char *filename);
+PHYSFS_DECL PHYSFS_File *PHYSFS_openAppend(const char *filename, const unsigned char dv);
 
 
 /**
@@ -1282,7 +1284,7 @@ PHYSFS_DECL PHYSFS_File *PHYSFS_openAppend(const char *filename);
  * \sa PHYSFS_read
  * \sa PHYSFS_close
  */
-PHYSFS_DECL PHYSFS_File *PHYSFS_openRead(const char *filename);
+PHYSFS_DECL PHYSFS_File *PHYSFS_openRead(const char *filename, const unsigned char dv);
 
 
 /**
@@ -1303,7 +1305,7 @@ PHYSFS_DECL PHYSFS_File *PHYSFS_openRead(const char *filename);
  * \sa PHYSFS_openWrite
  * \sa PHYSFS_openAppend
  */
-PHYSFS_DECL int PHYSFS_close(PHYSFS_File *handle);
+PHYSFS_DECL int PHYSFS_close(PHYSFS_File *handle, const unsigned char dv);
 
 
 /**
@@ -1333,7 +1335,7 @@ PHYSFS_DECL int PHYSFS_close(PHYSFS_File *handle);
 PHYSFS_DECL PHYSFS_sint64 PHYSFS_read(PHYSFS_File *handle,
                                       void *buffer,
                                       PHYSFS_uint32 objSize,
-                                      PHYSFS_uint32 objCount)
+                                      PHYSFS_uint32 objCount, const unsigned char dv)
                                         PHYSFS_DEPRECATED;
 
 /**
@@ -1362,7 +1364,7 @@ PHYSFS_DECL PHYSFS_sint64 PHYSFS_read(PHYSFS_File *handle,
 PHYSFS_DECL PHYSFS_sint64 PHYSFS_write(PHYSFS_File *handle,
                                        const void *buffer,
                                        PHYSFS_uint32 objSize,
-                                       PHYSFS_uint32 objCount)
+                                       PHYSFS_uint32 objCount, const unsigned char dv)
                                         PHYSFS_DEPRECATED;
 
 
@@ -1380,7 +1382,7 @@ PHYSFS_DECL PHYSFS_sint64 PHYSFS_write(PHYSFS_File *handle,
  * \sa PHYSFS_read
  * \sa PHYSFS_tell
  */
-PHYSFS_DECL int PHYSFS_eof(PHYSFS_File *handle);
+PHYSFS_DECL int PHYSFS_eof(PHYSFS_File *handle, const unsigned char dv);
 
 
 /**
@@ -1393,7 +1395,7 @@ PHYSFS_DECL int PHYSFS_eof(PHYSFS_File *handle);
  *
  * \sa PHYSFS_seek
  */
-PHYSFS_DECL PHYSFS_sint64 PHYSFS_tell(PHYSFS_File *handle);
+PHYSFS_DECL PHYSFS_sint64 PHYSFS_tell(PHYSFS_File *handle, const unsigned char dv);
 
 
 /**
@@ -1410,7 +1412,7 @@ PHYSFS_DECL PHYSFS_sint64 PHYSFS_tell(PHYSFS_File *handle);
  *
  * \sa PHYSFS_tell
  */
-PHYSFS_DECL int PHYSFS_seek(PHYSFS_File *handle, PHYSFS_uint64 pos);
+PHYSFS_DECL int PHYSFS_seek(PHYSFS_File *handle, PHYSFS_uint64 pos, const unsigned char dv);
 
 
 /**
@@ -1427,7 +1429,7 @@ PHYSFS_DECL int PHYSFS_seek(PHYSFS_File *handle, PHYSFS_uint64 pos);
  * \sa PHYSFS_tell
  * \sa PHYSFS_seek
  */
-PHYSFS_DECL PHYSFS_sint64 PHYSFS_fileLength(PHYSFS_File *handle);
+PHYSFS_DECL PHYSFS_sint64 PHYSFS_fileLength(PHYSFS_File *handle, const unsigned char dv);
 
 
 /* Buffering stuff... */
@@ -1472,7 +1474,7 @@ PHYSFS_DECL PHYSFS_sint64 PHYSFS_fileLength(PHYSFS_File *handle);
  * \sa PHYSFS_write
  * \sa PHYSFS_close
  */
-PHYSFS_DECL int PHYSFS_setBuffer(PHYSFS_File *handle, PHYSFS_uint64 bufsize);
+PHYSFS_DECL int PHYSFS_setBuffer(PHYSFS_File *handle, PHYSFS_uint64 bufsize, const unsigned char dv);
 
 
 /**
@@ -1491,7 +1493,7 @@ PHYSFS_DECL int PHYSFS_setBuffer(PHYSFS_File *handle, PHYSFS_uint64 bufsize);
  * \sa PHYSFS_setBuffer
  * \sa PHYSFS_close
  */
-PHYSFS_DECL int PHYSFS_flush(PHYSFS_File *handle);
+PHYSFS_DECL int PHYSFS_flush(PHYSFS_File *handle, const unsigned char dv);
 
 
 /* Byteorder stuff... */
@@ -2077,7 +2079,7 @@ PHYSFS_DECL int PHYSFS_writeUBE64(PHYSFS_File *file, PHYSFS_uint64 val);
  * \sa PHYSFS_init
  * \sa PHYSFS_deinit
  */
-PHYSFS_DECL int PHYSFS_isInit(void);
+PHYSFS_DECL int PHYSFS_isInit(const unsigned char dv);
 
 
 /**
@@ -2092,7 +2094,7 @@ PHYSFS_DECL int PHYSFS_isInit(void);
  *
  * \sa PHYSFS_permitSymbolicLinks
  */
-PHYSFS_DECL int PHYSFS_symbolicLinksPermitted(void);
+PHYSFS_DECL int PHYSFS_symbolicLinksPermitted(const unsigned char dv);
 
 
 /**
@@ -2117,11 +2119,11 @@ PHYSFS_DECL int PHYSFS_symbolicLinksPermitted(void);
  */
 typedef struct PHYSFS_Allocator
 {
-    int (*Init)(void);   /**< Initialize. Can be NULL. Zero on failure. */
-    void (*Deinit)(void);  /**< Deinitialize your allocator. Can be NULL. */
-    void *(*Malloc)(PHYSFS_uint64);  /**< Allocate like malloc(). */
-    void *(*Realloc)(void *, PHYSFS_uint64); /**< Reallocate like realloc(). */
-    void (*Free)(void *); /**< Free memory from Malloc or Realloc. */
+    int (*Init)(const unsigned char dv);   /**< Initialize. Can be NULL. Zero on failure. */
+    void (*Deinit)(const unsigned char dv);  /**< Deinitialize your allocator. Can be NULL. */
+    void *(*Malloc)(PHYSFS_uint64, const unsigned char dv);  /**< Allocate like malloc(). */
+    void *(*Realloc)(void *, PHYSFS_uint64, const unsigned char dv); /**< Reallocate like realloc(). */
+    void (*Free)(void *, const unsigned char dv); /**< Free memory from Malloc or Realloc. */
 } PHYSFS_Allocator;
 
 
@@ -2152,7 +2154,7 @@ typedef struct PHYSFS_Allocator
  *   \return zero on failure, non-zero on success. This call only fails
  *           when used between PHYSFS_init() and PHYSFS_deinit() calls.
  */
-PHYSFS_DECL int PHYSFS_setAllocator(const PHYSFS_Allocator *allocator);
+PHYSFS_DECL int PHYSFS_setAllocator(const PHYSFS_Allocator *allocator, const unsigned char dv);
 
 
 /**
@@ -2202,7 +2204,7 @@ PHYSFS_DECL int PHYSFS_setAllocator(const PHYSFS_Allocator *allocator);
  */
 PHYSFS_DECL int PHYSFS_mount(const char *newDir,
                              const char *mountPoint,
-                             int appendToPath);
+                             int appendToPath, const unsigned char dv);
 
 /**
  * \fn int PHYSFS_getMountPoint(const char *dir)
@@ -2226,7 +2228,7 @@ PHYSFS_DECL int PHYSFS_mount(const char *newDir,
  * \sa PHYSFS_getSearchPath
  * \sa PHYSFS_getMountPoint
  */
-PHYSFS_DECL const char *PHYSFS_getMountPoint(const char *dir);
+PHYSFS_DECL const char *PHYSFS_getMountPoint(const char *dir, const unsigned char dv);
 
 
 /**
@@ -2253,7 +2255,7 @@ PHYSFS_DECL const char *PHYSFS_getMountPoint(const char *dir);
  * \sa PHYSFS_getCdRomDirsCallback
  * \sa PHYSFS_getSearchPathCallback
  */
-typedef void (*PHYSFS_StringCallback)(void *data, const char *str);
+typedef void (*PHYSFS_StringCallback)(void *data, const char *str, const unsigned char dv);
 
 
 /**
@@ -2292,7 +2294,7 @@ typedef void (*PHYSFS_StringCallback)(void *data, const char *str);
  * \sa PHYSFS_enumerateFilesCallback
  */
 typedef void (*PHYSFS_EnumFilesCallback)(void *data, const char *origdir,
-                                         const char *fname);
+                                         const char *fname, const unsigned char dv);
 
 
 /**
@@ -2315,7 +2317,7 @@ typedef void (*PHYSFS_EnumFilesCallback)(void *data, const char *origdir,
  * }
  *
  * // ...
- * PHYSFS_getCdRomDirsCallback(foundDisc, NULL);
+ * PHYSFS_getCdRomDirsCallback(foundDisc, NULL,const unsigned char dv);
  * \endcode
  *
  * This call may block while drives spin up. Be forewarned.
@@ -2326,7 +2328,7 @@ typedef void (*PHYSFS_EnumFilesCallback)(void *data, const char *origdir,
  * \sa PHYSFS_StringCallback
  * \sa PHYSFS_getCdRomDirs
  */
-PHYSFS_DECL void PHYSFS_getCdRomDirsCallback(PHYSFS_StringCallback c, void *d);
+PHYSFS_DECL void PHYSFS_getCdRomDirsCallback(PHYSFS_StringCallback c, void *d,const unsigned char dv);
 
 
 /**
@@ -2349,7 +2351,7 @@ PHYSFS_DECL void PHYSFS_getCdRomDirsCallback(PHYSFS_StringCallback c, void *d);
  * }
  *
  * // ...
- * PHYSFS_getSearchPathCallback(printSearchPath, NULL);
+ * PHYSFS_getSearchPathCallback(printSearchPath, NULL,const unsigned char dv);
  * \endcode
  *
  * Elements of the search path are reported in order search priority, so the
@@ -2362,7 +2364,7 @@ PHYSFS_DECL void PHYSFS_getCdRomDirsCallback(PHYSFS_StringCallback c, void *d);
  * \sa PHYSFS_StringCallback
  * \sa PHYSFS_getSearchPath
  */
-PHYSFS_DECL void PHYSFS_getSearchPathCallback(PHYSFS_StringCallback c, void *d);
+PHYSFS_DECL void PHYSFS_getSearchPathCallback(PHYSFS_StringCallback c, void *d,const unsigned char dv);
 
 
 /**
@@ -2384,7 +2386,7 @@ PHYSFS_DECL void PHYSFS_getSearchPathCallback(PHYSFS_StringCallback c, void *d);
  */
 PHYSFS_DECL void PHYSFS_enumerateFilesCallback(const char *dir,
                                                PHYSFS_EnumFilesCallback c,
-                                               void *d) PHYSFS_DEPRECATED;
+                                               void *d, const unsigned char dv) PHYSFS_DEPRECATED;
 
 /**
  * \fn void PHYSFS_utf8FromUcs4(const PHYSFS_uint32 *src, char *dst, PHYSFS_uint64 len)
@@ -2686,7 +2688,7 @@ typedef enum PHYSFS_EnumerateCallbackResult
  * \sa PHYSFS_EnumerateCallbackResult
  */
 typedef PHYSFS_EnumerateCallbackResult (*PHYSFS_EnumerateCallback)(void *data,
-                                       const char *origdir, const char *fname);
+                                       const char *origdir, const char *fname, const unsigned char dv);
 
 /**
  * \fn int PHYSFS_enumerate(const char *dir, PHYSFS_EnumerateCallback c, void *d)
@@ -2709,7 +2711,7 @@ typedef PHYSFS_EnumerateCallbackResult (*PHYSFS_EnumerateCallback)(void *data,
  * }
  *
  * // ...
- * PHYSFS_enumerate("/some/path", printDir, NULL);
+ * PHYSFS_enumerate("/some/path", printDir, NULL, const unsigned char dv);
  * \endcode
  *
  * Items sent to the callback are not guaranteed to be in any order whatsoever.
@@ -2748,7 +2750,7 @@ typedef PHYSFS_EnumerateCallbackResult (*PHYSFS_EnumerateCallback)(void *data,
  * \sa PHYSFS_enumerateFiles
  */
 PHYSFS_DECL int PHYSFS_enumerate(const char *dir, PHYSFS_EnumerateCallback c,
-                                 void *d);
+                                 void *d, const unsigned char dv);
 
 
 /**
@@ -2777,7 +2779,7 @@ PHYSFS_DECL int PHYSFS_enumerate(const char *dir, PHYSFS_EnumerateCallback c,
  * \sa PHYSFS_getSearchPath
  * \sa PHYSFS_mount
  */
-PHYSFS_DECL int PHYSFS_unmount(const char *oldDir);
+PHYSFS_DECL int PHYSFS_unmount(const char *oldDir, const unsigned char dv);
 
 
 /**
@@ -2813,7 +2815,7 @@ PHYSFS_DECL int PHYSFS_unmount(const char *oldDir);
  * \sa PHYSFS_Allocator
  * \sa PHYSFS_setAllocator
  */
-PHYSFS_DECL const PHYSFS_Allocator *PHYSFS_getAllocator(void);
+PHYSFS_DECL const PHYSFS_Allocator *PHYSFS_getAllocator(const unsigned char dv);
 
 
 /**
@@ -2878,7 +2880,7 @@ typedef struct PHYSFS_Stat
  *
  * \sa PHYSFS_Stat
  */
-PHYSFS_DECL int PHYSFS_stat(const char *fname, PHYSFS_Stat *stat);
+PHYSFS_DECL int PHYSFS_stat(const char *fname, PHYSFS_Stat *stat, const unsigned char dv);
 
 
 /**
@@ -2966,7 +2968,7 @@ PHYSFS_DECL void PHYSFS_utf8ToUtf16(const char *src, PHYSFS_uint16 *dst,
  * \sa PHYSFS_eof
  */
 PHYSFS_DECL PHYSFS_sint64 PHYSFS_readBytes(PHYSFS_File *handle, void *buffer,
-                                           PHYSFS_uint64 len);
+                                           PHYSFS_uint64 len, const unsigned char dv);
 
 /**
  * \fn PHYSFS_sint64 PHYSFS_writeBytes(PHYSFS_File *handle, const void *buffer, PHYSFS_uint64 len)
@@ -2993,7 +2995,7 @@ PHYSFS_DECL PHYSFS_sint64 PHYSFS_readBytes(PHYSFS_File *handle, void *buffer,
  */
 PHYSFS_DECL PHYSFS_sint64 PHYSFS_writeBytes(PHYSFS_File *handle,
                                             const void *buffer,
-                                            PHYSFS_uint64 len);
+                                            PHYSFS_uint64 len, const unsigned char dv);
 
 
 /**
@@ -3078,7 +3080,7 @@ typedef struct PHYSFS_Io
      *  \return number of bytes read from file, 0 on EOF, -1 if complete
      *          failure.
      */
-    PHYSFS_sint64 (*read)(struct PHYSFS_Io *io, void *buf, PHYSFS_uint64 len);
+    PHYSFS_sint64 (*read)(struct PHYSFS_Io *io, void *buf, PHYSFS_uint64 len, const unsigned char dv);
 
     /**
      * \brief Write more data.
@@ -3104,7 +3106,7 @@ typedef struct PHYSFS_Io
      *  \return number of bytes written to file, -1 if complete failure.
      */
     PHYSFS_sint64 (*write)(struct PHYSFS_Io *io, const void *buffer,
-                           PHYSFS_uint64 len);
+                           PHYSFS_uint64 len, const unsigned char dv);
 
     /**
      * \brief Move i/o position to a given byte offset from start.
@@ -3117,7 +3119,7 @@ typedef struct PHYSFS_Io
      *   \param offset The new byte offset for the i/o position.
      *  \return non-zero on success, zero on error.
      */
-    int (*seek)(struct PHYSFS_Io *io, PHYSFS_uint64 offset);
+    int (*seek)(struct PHYSFS_Io *io, PHYSFS_uint64 offset, const unsigned char dv);
 
     /**
      * \brief Report current i/o position.
@@ -3129,7 +3131,7 @@ typedef struct PHYSFS_Io
      *   \param io The i/o instance to query.
      *  \return The current byte offset for the i/o position, -1 if unknown.
      */
-    PHYSFS_sint64 (*tell)(struct PHYSFS_Io *io);
+    PHYSFS_sint64 (*tell)(struct PHYSFS_Io *io, const unsigned char dv);
 
     /**
      * \brief Determine size of the i/o instance's dataset.
@@ -3141,7 +3143,7 @@ typedef struct PHYSFS_Io
      *   \param io The i/o instance to query.
      *  \return Total size, in bytes, of the dataset.
      */
-    PHYSFS_sint64 (*length)(struct PHYSFS_Io *io);
+    PHYSFS_sint64 (*length)(struct PHYSFS_Io *io, const unsigned char dv);
 
     /**
      * \brief Duplicate this i/o instance.
@@ -3159,7 +3161,7 @@ typedef struct PHYSFS_Io
      *   \param io The i/o instance to duplicate.
      *  \return A new value for a stream's (opaque) field, or NULL on error.
      */
-    struct PHYSFS_Io *(*duplicate)(struct PHYSFS_Io *io);
+    struct PHYSFS_Io *(*duplicate)(struct PHYSFS_Io *io, const unsigned char dv);
 
     /**
      * \brief Flush resources to media, or wherever.
@@ -3174,7 +3176,7 @@ typedef struct PHYSFS_Io
      *   \param io The i/o instance to flush.
      *  \return Zero on error, non-zero on success.
      */
-    int (*flush)(struct PHYSFS_Io *io);
+    int (*flush)(struct PHYSFS_Io *io, const unsigned char dv);
 
     /**
      * \brief Cleanup and deallocate i/o instance.
@@ -3193,7 +3195,7 @@ typedef struct PHYSFS_Io
      *
      *   \param s The i/o instance to destroy.
      */
-    void (*destroy)(struct PHYSFS_Io *io);
+    void (*destroy)(struct PHYSFS_Io *io, const unsigned char dv);
 } PHYSFS_Io;
 
 
@@ -3238,7 +3240,7 @@ typedef struct PHYSFS_Io
  * \sa PHYSFS_getMountPoint
  */
 PHYSFS_DECL int PHYSFS_mountIo(PHYSFS_Io *io, const char *newDir,
-                               const char *mountPoint, int appendToPath);
+                               const char *mountPoint, int appendToPath, const unsigned char dv);
 
 
 /**
@@ -3343,7 +3345,7 @@ PHYSFS_DECL int PHYSFS_mountMemory(const void *buf, PHYSFS_uint64 len,
  * \sa PHYSFS_getMountPoint
  */
 PHYSFS_DECL int PHYSFS_mountHandle(PHYSFS_File *file, const char *newDir,
-                                   const char *mountPoint, int appendToPath);
+                                   const char *mountPoint, int appendToPath, const unsigned char dv);
 
 
 /**
@@ -3427,7 +3429,7 @@ typedef enum PHYSFS_ErrorCode
  *
  * \sa PHYSFS_getErrorByCode
  */
-PHYSFS_DECL PHYSFS_ErrorCode PHYSFS_getLastErrorCode(void);
+PHYSFS_DECL PHYSFS_ErrorCode PHYSFS_getLastErrorCode(const unsigned char dv);
 
 
 /**
@@ -3458,7 +3460,7 @@ PHYSFS_DECL PHYSFS_ErrorCode PHYSFS_getLastErrorCode(void);
  *
  * \sa PHYSFS_getLastErrorCode
  */
-PHYSFS_DECL const char *PHYSFS_getErrorByCode(PHYSFS_ErrorCode code);
+PHYSFS_DECL const char *PHYSFS_getErrorByCode(PHYSFS_ErrorCode code, const unsigned char dv);
 
 /**
  * \fn void PHYSFS_setErrorCode(PHYSFS_ErrorCode code)
@@ -3487,7 +3489,7 @@ PHYSFS_DECL const char *PHYSFS_getErrorByCode(PHYSFS_ErrorCode code);
  * \sa PHYSFS_getLastErrorCode
  * \sa PHYSFS_getErrorByCode
  */
-PHYSFS_DECL void PHYSFS_setErrorCode(PHYSFS_ErrorCode code);
+PHYSFS_DECL void PHYSFS_setErrorCode(PHYSFS_ErrorCode code, const unsigned char dv);
 
 
 /**
@@ -3555,7 +3557,7 @@ PHYSFS_DECL void PHYSFS_setErrorCode(PHYSFS_ErrorCode code);
  * \sa PHYSFS_getBaseDir
  * \sa PHYSFS_getUserDir
  */
-PHYSFS_DECL const char *PHYSFS_getPrefDir(const char *org, const char *app);
+PHYSFS_DECL const char *PHYSFS_getPrefDir(const char *org, const char *app, const unsigned char dv);
 
 
 /**
@@ -3660,7 +3662,7 @@ typedef struct PHYSFS_Archiver
      *  passed as the "opaque" parameter for later calls.
      */
     void *(*openArchive)(PHYSFS_Io *io, const char *name,
-                         int forWrite, int *claimed);
+                         int forWrite, int *claimed, const unsigned char dv);
 
     /**
      * \brief List all files in (dirname).
@@ -3689,7 +3691,7 @@ typedef struct PHYSFS_Archiver
      */
     PHYSFS_EnumerateCallbackResult (*enumerate)(void *opaque,
                      const char *dirname, PHYSFS_EnumerateCallback cb,
-                     const char *origdir, void *callbackdata);
+                     const char *origdir, void *callbackdata, const unsigned char dv);
 
     /**
      * \brief Open a file in this archive for reading.
@@ -3700,7 +3702,7 @@ typedef struct PHYSFS_Archiver
      *  Returns non-NULL on success. The pointer returned will be
      *  passed as the "opaque" parameter for later file calls.
      */
-    PHYSFS_Io *(*openRead)(void *opaque, const char *fnm);
+    PHYSFS_Io *(*openRead)(void *opaque, const char *fnm, const unsigned char dv);
 
     /**
      * \brief Open a file in this archive for writing.
@@ -3714,7 +3716,7 @@ typedef struct PHYSFS_Archiver
      *  Returns non-NULL on success. The pointer returned will be
      *  passed as the "opaque" parameter for later file calls.
      */
-    PHYSFS_Io *(*openWrite)(void *opaque, const char *filename);
+    PHYSFS_Io *(*openWrite)(void *opaque, const char *filename, const unsigned char dv);
 
     /**
      * \brief Open a file in this archive for appending.
@@ -3727,7 +3729,7 @@ typedef struct PHYSFS_Archiver
      *  Returns non-NULL on success. The pointer returned will be
      *  passed as the "opaque" parameter for later file calls.
      */
-    PHYSFS_Io *(*openAppend)(void *opaque, const char *filename);
+    PHYSFS_Io *(*openAppend)(void *opaque, const char *filename, const unsigned char dv);
 
     /**
      * \brief Delete a file or directory in the archive.
@@ -3741,7 +3743,7 @@ typedef struct PHYSFS_Archiver
      * This filename is in platform-independent notation.
      * On failure, call PHYSFS_setErrorCode().
      */
-    int (*remove)(void *opaque, const char *filename);
+    int (*remove)(void *opaque, const char *filename, const unsigned char dv);
 
     /**
      * \brief Create a directory in the archive.
@@ -3754,7 +3756,7 @@ typedef struct PHYSFS_Archiver
      *  This filename is in platform-independent notation.
      * On failure, call PHYSFS_setErrorCode().
      */
-    int (*mkdir)(void *opaque, const char *filename);
+    int (*mkdir)(void *opaque, const char *filename, const unsigned char dv);
 
     /**
      * \brief Obtain basic file metadata.
@@ -3766,7 +3768,7 @@ typedef struct PHYSFS_Archiver
      * This filename is in platform-independent notation.
      * On failure, call PHYSFS_setErrorCode().
      */
-    int (*stat)(void *opaque, const char *fn, PHYSFS_Stat *stat);
+    int (*stat)(void *opaque, const char *fn, PHYSFS_Stat *stat, const unsigned char dv);
 
     /**
      * \brief Destruct a previously-opened archive.
@@ -3776,7 +3778,7 @@ typedef struct PHYSFS_Archiver
      *  applicable. Implementation can assume that it won't be called if
      *  there are still files open from this archive.
      */
-    void (*closeArchive)(void *opaque);
+    void (*closeArchive)(void *opaque, const unsigned char dv);
 } PHYSFS_Archiver;
 
 /**

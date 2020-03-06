@@ -14,9 +14,9 @@
 
 
 static char *cvtToDependent(const char *prepend, const char *path,
-                            char *buf, const size_t buflen)
+                            char *buf, const size_t buflen, const unsigned char dv)
 {
-    BAIL_IF(buf == NULL, PHYSFS_ERR_OUT_OF_MEMORY, NULL);
+    BAIL_IF(buf == NULL, PHYSFS_ERR_OUT_OF_MEMORY, NULL, dv);
     snprintf(buf, buflen, "%s%s", prepend ? prepend : "", path);
 
     #if !__PHYSFS_STANDARD_DIRSEP
@@ -32,15 +32,15 @@ static char *cvtToDependent(const char *prepend, const char *path,
 } /* cvtToDependent */
 
 
-#define CVT_TO_DEPENDENT(buf, pre, dir) { \
+#define CVT_TO_DEPENDENT(buf, pre, dir, dv) { \
     const size_t len = ((pre) ? strlen((char *) pre) : 0) + strlen(dir) + 1; \
-    buf = cvtToDependent((char*)pre,dir,(char*)__PHYSFS_smallAlloc(len),len); \
+    buf = cvtToDependent((char*)pre,dir,(char*)__PHYSFS_smallAlloc(len, dv),len, dv); \
 }
 
 
 
 static void *DIR_openArchive(PHYSFS_Io *io, const char *name,
-                             int forWriting, int *claimed)
+                             int forWriting, int *claimed, const unsigned char dv)
 {
     PHYSFS_Stat st;
     const char dirsep = __PHYSFS_platformDirSeparator;
@@ -49,14 +49,14 @@ static void *DIR_openArchive(PHYSFS_Io *io, const char *name,
     const size_t seplen = 1;
 
     assert(io == NULL);  /* shouldn't create an Io for these. */
-    BAIL_IF_ERRPASS(!__PHYSFS_platformStat(name, &st, 1), NULL);
+    BAIL_IF_ERRPASS(!__PHYSFS_platformStat(name, &st, 1, dv), NULL, dv);
 
     if (st.filetype != PHYSFS_FILETYPE_DIRECTORY)
-        BAIL(PHYSFS_ERR_UNSUPPORTED, NULL);
+        BAIL(PHYSFS_ERR_UNSUPPORTED, NULL, dv);
 
     *claimed = 1;
-    retval = allocator.Malloc(namelen + seplen + 1);
-    BAIL_IF(retval == NULL, PHYSFS_ERR_OUT_OF_MEMORY, NULL);
+    retval = allocator[dv].Malloc(namelen + seplen + 1, dv);
+    BAIL_IF(retval == NULL, PHYSFS_ERR_OUT_OF_MEMORY, NULL, dv);
 
     strcpy(retval, name);
 
@@ -73,100 +73,100 @@ static void *DIR_openArchive(PHYSFS_Io *io, const char *name,
 
 static PHYSFS_EnumerateCallbackResult DIR_enumerate(void *opaque,
                          const char *dname, PHYSFS_EnumerateCallback cb,
-                         const char *origdir, void *callbackdata)
+                         const char *origdir, void *callbackdata, const unsigned char dv)
 {
     char *d;
     PHYSFS_EnumerateCallbackResult retval;
-    CVT_TO_DEPENDENT(d, opaque, dname);
-    BAIL_IF_ERRPASS(!d, PHYSFS_ENUM_ERROR);
-    retval = __PHYSFS_platformEnumerate(d, cb, origdir, callbackdata);
-    __PHYSFS_smallFree(d);
+    CVT_TO_DEPENDENT(d, opaque, dname, dv);
+    BAIL_IF_ERRPASS(!d, PHYSFS_ENUM_ERROR, dv);
+    retval = __PHYSFS_platformEnumerate(d, cb, origdir, callbackdata, dv);
+    __PHYSFS_smallFree(d, dv);
     return retval;
 } /* DIR_enumerate */
 
 
-static PHYSFS_Io *doOpen(void *opaque, const char *name, const int mode)
+static PHYSFS_Io *doOpen(void *opaque, const char *name, const int mode, const unsigned char dv)
 {
     PHYSFS_Io *io = NULL;
     char *f = NULL;
 
-    CVT_TO_DEPENDENT(f, opaque, name);
-    BAIL_IF_ERRPASS(!f, NULL);
+    CVT_TO_DEPENDENT(f, opaque, name, dv);
+    BAIL_IF_ERRPASS(!f, NULL, dv);
 
-    io = __PHYSFS_createNativeIo(f, mode);
+    io = __PHYSFS_createNativeIo(f, mode, dv);
     if (io == NULL)
     {
-        const PHYSFS_ErrorCode err = PHYSFS_getLastErrorCode();
+        const PHYSFS_ErrorCode err = PHYSFS_getLastErrorCode(dv);
         PHYSFS_Stat statbuf;
-        __PHYSFS_platformStat(f, &statbuf, 0);  /* !!! FIXME: why are we stating here? */
-        PHYSFS_setErrorCode(err);
+        __PHYSFS_platformStat(f, &statbuf, 0, dv);  /* !!! FIXME: why are we stating here? */
+        PHYSFS_setErrorCode(err, dv);
     } /* if */
 
-    __PHYSFS_smallFree(f);
+    __PHYSFS_smallFree(f, dv);
 
     return io;
 } /* doOpen */
 
 
-static PHYSFS_Io *DIR_openRead(void *opaque, const char *filename)
+static PHYSFS_Io *DIR_openRead(void *opaque, const char *filename, const unsigned char dv)
 {
-    return doOpen(opaque, filename, 'r');
+    return doOpen(opaque, filename, 'r', dv);
 } /* DIR_openRead */
 
 
-static PHYSFS_Io *DIR_openWrite(void *opaque, const char *filename)
+static PHYSFS_Io *DIR_openWrite(void *opaque, const char *filename, const unsigned char dv)
 {
-    return doOpen(opaque, filename, 'w');
+    return doOpen(opaque, filename, 'w', dv);
 } /* DIR_openWrite */
 
 
-static PHYSFS_Io *DIR_openAppend(void *opaque, const char *filename)
+static PHYSFS_Io *DIR_openAppend(void *opaque, const char *filename, const unsigned char dv)
 {
-    return doOpen(opaque, filename, 'a');
+    return doOpen(opaque, filename, 'a', dv);
 } /* DIR_openAppend */
 
 
-static int DIR_remove(void *opaque, const char *name)
+static int DIR_remove(void *opaque, const char *name, const unsigned char dv)
 {
     int retval;
     char *f;
 
-    CVT_TO_DEPENDENT(f, opaque, name);
-    BAIL_IF_ERRPASS(!f, 0);
-    retval = __PHYSFS_platformDelete(f);
-    __PHYSFS_smallFree(f);
+    CVT_TO_DEPENDENT(f, opaque, name, dv);
+    BAIL_IF_ERRPASS(!f, 0,dv);
+    retval = __PHYSFS_platformDelete(f, dv);
+    __PHYSFS_smallFree(f,dv);
     return retval;
 } /* DIR_remove */
 
 
-static int DIR_mkdir(void *opaque, const char *name)
+static int DIR_mkdir(void *opaque, const char *name, const unsigned char dv)
 {
     int retval;
     char *f;
 
-    CVT_TO_DEPENDENT(f, opaque, name);
-    BAIL_IF_ERRPASS(!f, 0);
-    retval = __PHYSFS_platformMkDir(f);
-    __PHYSFS_smallFree(f);
+    CVT_TO_DEPENDENT(f, opaque, name, dv);
+    BAIL_IF_ERRPASS(!f, 0,dv);
+    retval = __PHYSFS_platformMkDir(f,dv);
+    __PHYSFS_smallFree(f,dv);
     return retval;
 } /* DIR_mkdir */
 
 
-static void DIR_closeArchive(void *opaque)
+static void DIR_closeArchive(void *opaque, const unsigned char dv)
 {
-    allocator.Free(opaque);
+    allocator[dv].Free(opaque, dv);
 } /* DIR_closeArchive */
 
 
-static int DIR_stat(void *opaque, const char *name, PHYSFS_Stat *stat)
+static int DIR_stat(void *opaque, const char *name, PHYSFS_Stat *stat, const unsigned char dv)
 {
     int retval = 0;
     char *d;
 
-    CVT_TO_DEPENDENT(d, opaque, name);
-    BAIL_IF_ERRPASS(!d, 0);
-    retval = __PHYSFS_platformStat(d, stat, 0);
-    __PHYSFS_smallFree(d);
+    CVT_TO_DEPENDENT(d, opaque, name, dv);
+    BAIL_IF_ERRPASS(!d, 0, dv);
+    retval = __PHYSFS_platformStat(d, stat, 0, dv);
+    __PHYSFS_smallFree(d, dv);
     return retval;
 } /* DIR_stat */
 

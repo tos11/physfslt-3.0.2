@@ -242,6 +242,17 @@ static int cmd_removearchive(char *args)
     return 1;
 } /* cmd_removearchive */
 
+static int cmd_drive(char *args)
+{
+	unsigned int drive = atoi(args);
+	if (drive > NUM_DRIVES - 1) {
+		printf("Invalid drive number %u, using 0 instead!\n", drive);
+		dv = 0;
+		return 1;
+	}
+	dv = (unsigned char)(drive);
+	return 1;
+}
 
 static int cmd_enumerate(char *args)
 {
@@ -1219,6 +1230,7 @@ static const command_info commands[] =
     { "quit",           cmd_quit,           0, NULL                         },
     { "q",              cmd_quit,           0, NULL                         },
     { "help",           cmd_help,           0, NULL                         },
+    { "drive",          cmd_drive,          1, "<drive>"                    },
     { "init",           cmd_init,           1, "<argv0>"                    },
     { "deinit",         cmd_deinit,         0, NULL                         },
     { "addarchive",     cmd_addarchive,     2, "<archiveLocation> <append>" },

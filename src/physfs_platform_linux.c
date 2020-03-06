@@ -1,5 +1,5 @@
 /*
- * Unix support routines for PhysicsFS.
+ * Linux support routines for PhysicsFS.
  *
  * Please see the file LICENSE.txt in the source's root directory.
  *
@@ -23,19 +23,7 @@
 #include <errno.h>
 #include <limits.h>
 
-#if PHYSFS_NO_CDROM_SUPPORT
-#elif PHYSFS_PLATFORM_LINUX
-#  define PHYSFS_HAVE_MNTENT_H 1
-#elif defined __CYGWIN__
-#  define PHYSFS_HAVE_MNTENT_H 1
-#elif PHYSFS_PLATFORM_SOLARIS
-#  define PHYSFS_HAVE_SYS_MNTTAB_H 1
-#elif PHYSFS_PLATFORM_BSD
-#  define PHYSFS_HAVE_SYS_UCRED_H 1
-#else
-#  warning No CD-ROM support included. Either define your platform here,
-#  warning  or define PHYSFS_NO_CDROM_SUPPORT=1 to confirm this is intentional.
-#endif
+#define PHYSFS_HAVE_MNTENT_H 1
 
 #ifdef PHYSFS_HAVE_SYS_UCRED_H
 #  ifdef PHYSFS_HAVE_MNTENT_H
@@ -49,104 +37,7 @@
 #include <mntent.h>
 #endif
 
-#ifdef PHYSFS_HAVE_SYS_MNTTAB_H
-#include <sys/mnttab.h>
-#endif
-
-#ifdef PHYSFS_PLATFORM_FREEBSD
-#include <sys/sysctl.h>
-#endif
-
-
 #include "physfs_internal.h"
-
-int __PHYSFS_platformInit(void)
-{
-    return 1;  /* always succeed. */
-} /* __PHYSFS_platformInit */
-
-
-void __PHYSFS_platformDeinit(void)
-{
-    /* no-op */
-} /* __PHYSFS_platformDeinit */
-
-
-void __PHYSFS_platformDetectAvailableCDs(PHYSFS_StringCallback cb, void *data)
-{
-#if (defined PHYSFS_NO_CDROM_SUPPORT)
-    /* no-op. */
-
-#elif (defined PHYSFS_HAVE_SYS_UCRED_H)
-    int i;
-    struct statfs *mntbufp = NULL;
-    int mounts = getmntinfo(&mntbufp, MNT_NOWAIT);
-
-    for (i = 0; i < mounts; i++)
-    {
-        int add_it = 0;
-
-        if (strcmp(mntbufp[i].f_fstypename, "iso9660") == 0)
-            add_it = 1;
-        else if (strcmp( mntbufp[i].f_fstypename, "cd9660") == 0)
-            add_it = 1;
-
-        /* add other mount types here */
-
-        if (add_it)
-            cb(data, mntbufp[i].f_mntonname);
-    } /* for */
-
-#elif (defined PHYSFS_HAVE_MNTENT_H)
-    FILE *mounts = NULL;
-    struct mntent *ent = NULL;
-
-    mounts = setmntent("/etc/mtab", "r");
-    BAIL_IF(mounts == NULL, PHYSFS_ERR_IO, /*return void*/);
-
-    while ( (ent = getmntent(mounts)) != NULL )
-    {
-        int add_it = 0;
-        if (strcmp(ent->mnt_type, "iso9660") == 0)
-            add_it = 1;
-        else if (strcmp(ent->mnt_type, "udf") == 0)
-            add_it = 1;
-
-        /* !!! FIXME: these might pick up floppy drives, right? */
-        else if (strcmp(ent->mnt_type, "auto") == 0)
-            add_it = 1;
-        else if (strcmp(ent->mnt_type, "supermount") == 0)
-            add_it = 1;
-
-        /* add other mount types here */
-
-        if (add_it)
-            cb(data, ent->mnt_dir);
-    } /* while */
-
-    endmntent(mounts);
-
-#elif (defined PHYSFS_HAVE_SYS_MNTTAB_H)
-    FILE *mounts = fopen(MNTTAB, "r");
-    struct mnttab ent;
-
-    BAIL_IF(mounts == NULL, PHYSFS_ERR_IO, /*return void*/);
-    while (getmntent(mounts, &ent) == 0)
-    {
-        int add_it = 0;
-        if (strcmp(ent.mnt_fstype, "hsfs") == 0)
-            add_it = 1;
-
-        /* add other mount types here */
-
-        if (add_it)
-            cb(data, ent.mnt_mountp);
-    } /* while */
-
-    fclose(mounts);
-#endif
-} /* __PHYSFS_platformDetectAvailableCDs */
-
 
 /*
  * See where program (bin) resides in the $PATH specified by (envr).
@@ -154,10 +45,10 @@ void __PHYSFS_platformDetectAvailableCDs(PHYSFS_StringCallback cb, void *data)
  *  if it doesn't exist or there were other problems. PHYSFS_SetError() is
  *  called if we have a problem.
  *
- * (envr) will be scribbled over, and you are expected to allocator[dv].Free() the
+ * (envr) will be scribbled over, and you are expected to allocator.Free() the
  *  return value when you're done with it.
  */
-static char *findBinaryInPath(const char *bin, char *envr)
+static char *findBinaryInPath(const char *bin, char *envr, const unsigned char dv)
 {
     size_t alloc_size = 0;
     char *exe = NULL;
@@ -180,12 +71,12 @@ static char *findBinaryInPath(const char *bin, char *envr)
         size = strlen(start) + binlen + 2;
         if (size >= alloc_size)
         {
-            char *x = (char *) allocator[dv].Realloc(exe, size);
+            char *x = (char *) allocator[dv].Realloc(exe, size, dv);
             if (!x)
             {
                 if (exe != NULL)
-                    allocator[dv].Free(exe);
-                BAIL(PHYSFS_ERR_OUT_OF_MEMORY, NULL);
+                    allocator[dv].Free(exe, dv);
+                BAIL(PHYSFS_ERR_OUT_OF_MEMORY, NULL, dv);
             } /* if */
 
             alloc_size = size;
@@ -208,13 +99,13 @@ static char *findBinaryInPath(const char *bin, char *envr)
     } while (ptr != NULL);
 
     if (exe != NULL)
-        allocator[dv].Free(exe);
+        allocator[dv].Free(exe, dv);
 
     return NULL;  /* doesn't exist in path. */
 } /* findBinaryInPath */
 
 
-static char *readSymLink(const char *path)
+static char *readSymLink(const char *path, const unsigned char dv)
 {
     ssize_t len = 64;
     ssize_t rc = -1;
@@ -222,7 +113,7 @@ static char *readSymLink(const char *path)
 
     while (1)
     {
-         char *ptr = (char *) allocator[dv].Realloc(retval, (size_t) len);
+         char *ptr = (char *) allocator[dv].Realloc(retval, (size_t) len, dv);
          if (ptr == NULL)
              break;   /* out of memory. */
          retval = ptr;
@@ -241,33 +132,17 @@ static char *readSymLink(const char *path)
     } /* while */
 
     if (retval != NULL)
-        allocator[dv].Free(retval);
+        allocator[dv].Free(retval, dv);
     return NULL;
 } /* readSymLink */
 
 
-char *__PHYSFS_platformCalcBaseDir(const char *argv0)
+char *__PHYSFS_platformCalcBaseDir(const char *argv0, const unsigned char dv)
 {
     char *retval = NULL;
     const char *envr = NULL;
 
     /* Try to avoid using argv0 unless forced to. Try system-specific stuff. */
-
-    #if defined(PHYSFS_PLATFORM_FREEBSD)
-    {
-        char fullpath[PATH_MAX];
-        size_t buflen = sizeof (fullpath);
-        int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
-        if (sysctl(mib, 4, fullpath, &buflen, NULL, 0) != -1)
-            retval = __PHYSFS_strdup(fullpath);
-    }
-    #elif defined(PHYSFS_PLATFORM_SOLARIS)
-    {
-        const char *path = getexecname();
-        if ((path != NULL) && (path[0] == '/'))  /* must be absolute path... */
-            retval = __PHYSFS_strdup(path);
-    }
-    #endif
 
     /* If there's a Linux-like /proc filesystem, you can get the full path to
      *  the current process from a symlink in there.
@@ -275,9 +150,9 @@ char *__PHYSFS_platformCalcBaseDir(const char *argv0)
 
     if (!retval && (access("/proc", F_OK) == 0))
     {
-        retval = readSymLink("/proc/self/exe");
-        if (!retval) retval = readSymLink("/proc/curproc/file");
-        if (!retval) retval = readSymLink("/proc/curproc/exe");
+        retval = readSymLink("/proc/self/exe", dv);
+        if (!retval) retval = readSymLink("/proc/curproc/file", dv);
+        if (!retval) retval = readSymLink("/proc/curproc/exe", dv);
         if (retval == NULL)
         {
             /* older kernels don't have /proc/self ... try PID version... */
@@ -285,7 +160,7 @@ char *__PHYSFS_platformCalcBaseDir(const char *argv0)
             char path[64];
             const int rc = (int) snprintf(path,sizeof(path),"/proc/%llu/exe",pid);
             if ( (rc > 0) && (rc < sizeof(path)) )
-                retval = readSymLink(path);
+                retval = readSymLink(path, dv);
         } /* if */
     } /* if */
 
@@ -296,7 +171,7 @@ char *__PHYSFS_platformCalcBaseDir(const char *argv0)
             *(ptr+1) = '\0';
         else  /* shouldn't happen, but just in case... */
         {
-            allocator[dv].Free(retval);
+            allocator[dv].Free(retval, dv);
             retval = NULL;
         } /* else */
     } /* if */
@@ -312,18 +187,18 @@ char *__PHYSFS_platformCalcBaseDir(const char *argv0)
         envr = getenv("PATH");
         if (envr != NULL)
         {
-            char *path = (char *) __PHYSFS_smallAlloc(strlen(envr) + 1);
-            BAIL_IF(!path, PHYSFS_ERR_OUT_OF_MEMORY, NULL);
+            char *path = (char *) __PHYSFS_smallAlloc(strlen(envr) + 1, dv);
+            BAIL_IF(!path, PHYSFS_ERR_OUT_OF_MEMORY, NULL, dv);
             strcpy(path, envr);
-            retval = findBinaryInPath(argv0, path);
-            __PHYSFS_smallFree(path);
+            retval = findBinaryInPath(argv0, path, dv);
+            __PHYSFS_smallFree(path, dv);
         } /* if */
     } /* if */
 
     if (retval != NULL)
     {
         /* try to shrink buffer... */
-        char *ptr = (char *) allocator[dv].Realloc(retval, strlen(retval) + 1);
+        char *ptr = (char *) allocator[dv].Realloc(retval, strlen(retval) + 1, dv);
         if (ptr != NULL)
             retval = ptr;  /* oh well if it failed. */
     } /* if */
@@ -332,7 +207,7 @@ char *__PHYSFS_platformCalcBaseDir(const char *argv0)
 } /* __PHYSFS_platformCalcBaseDir */
 
 
-char *__PHYSFS_platformCalcPrefDir(const char *org, const char *app)
+char *__PHYSFS_platformCalcPrefDir(const char *org, const char *app, const unsigned char dv)
 {
     /*
      * We use XDG's base directory spec, even if you're not on Linux.
@@ -349,14 +224,14 @@ char *__PHYSFS_platformCalcPrefDir(const char *org, const char *app)
     if (!envr)
     {
         /* You end up with "$HOME/.local/share/Game Name 2" */
-        envr = __PHYSFS_getUserDir();
-        BAIL_IF_ERRPASS(!envr, NULL);  /* oh well. */
+        envr = __PHYSFS_getUserDir(dv);
+        BAIL_IF_ERRPASS(!envr, NULL, dv);  /* oh well. */
         append = ".local/share/";
     } /* if */
 
     len = strlen(envr) + strlen(append) + strlen(app) + 2;
-    retval = (char *) allocator[dv].Malloc(len);
-    BAIL_IF(!retval, PHYSFS_ERR_OUT_OF_MEMORY, NULL);
+    retval = (char *) allocator[dv].Malloc(len, dv);
+    BAIL_IF(!retval, PHYSFS_ERR_OUT_OF_MEMORY, NULL, dv);
     snprintf(retval, len, "%s%s%s/", envr, append, app);
     return retval;
 } /* __PHYSFS_platformCalcPrefDir */

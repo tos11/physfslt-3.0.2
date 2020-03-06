@@ -58,7 +58,7 @@ static inline PHYSFS_ErrorCode errcodeFromErrno(void)
 } /* errcodeFromErrno */
 
 
-static char *getUserDirByUID(void)
+static char *getUserDirByUID(const unsigned char dv)
 {
     uid_t uid = getuid();
     struct passwd *pw;
@@ -69,7 +69,7 @@ static char *getUserDirByUID(void)
     {
         const size_t dlen = strlen(pw->pw_dir);
         const size_t add_dirsep = (pw->pw_dir[dlen-1] != '/') ? 1 : 0;
-        retval = (char *) allocator.Malloc(dlen + 1 + add_dirsep);
+        retval = (char *) allocator[dv].Malloc(dlen + 1 + add_dirsep, dv);
         if (retval != NULL)
         {
             strcpy(retval, pw->pw_dir);
@@ -85,7 +85,7 @@ static char *getUserDirByUID(void)
 } /* getUserDirByUID */
 
 
-char *__PHYSFS_platformCalcUserDir(void)
+char *__PHYSFS_platformCalcUserDir(const unsigned char dv)
 {
     char *retval = NULL;
     char *envr = getenv("HOME");
@@ -98,7 +98,7 @@ char *__PHYSFS_platformCalcUserDir(void)
         {
             const size_t envrlen = strlen(envr);
             const size_t add_dirsep = (envr[envrlen-1] != '/') ? 1 : 0;
-            retval = allocator.Malloc(envrlen + 1 + add_dirsep);
+            retval = allocator[dv].Malloc(envrlen + 1 + add_dirsep, dv);
             if (retval)
             {
                 strcpy(retval, envr);
@@ -112,7 +112,7 @@ char *__PHYSFS_platformCalcUserDir(void)
     } /* if */
 
     if (retval == NULL)
-        retval = getUserDirByUID();
+        retval = getUserDirByUID(dv);
 
     return retval;
 } /* __PHYSFS_platformCalcUserDir */
@@ -120,14 +120,14 @@ char *__PHYSFS_platformCalcUserDir(void)
 
 PHYSFS_EnumerateCallbackResult __PHYSFS_platformEnumerate(const char *dirname,
                                PHYSFS_EnumerateCallback callback,
-                               const char *origdir, void *callbackdata)
+                               const char *origdir, void *callbackdata, const unsigned char dv)
 {
     DIR *dir;
     struct dirent *ent;
     PHYSFS_EnumerateCallbackResult retval = PHYSFS_ENUM_OK;
 
     dir = opendir(dirname);
-    BAIL_IF(dir == NULL, errcodeFromErrno(), PHYSFS_ENUM_ERROR);
+    BAIL_IF(dir == NULL, errcodeFromErrno(), PHYSFS_ENUM_ERROR, dv);
 
     while ((retval == PHYSFS_ENUM_OK) && ((ent = readdir(dir)) != NULL))
     {
@@ -138,9 +138,9 @@ PHYSFS_EnumerateCallbackResult __PHYSFS_platformEnumerate(const char *dirname,
                 continue;
         } /* if */
 
-        retval = callback(callbackdata, origdir, name);
+        retval = callback(callbackdata, origdir, name, dv);
         if (retval == PHYSFS_ENUM_ERROR)
-            PHYSFS_setErrorCode(PHYSFS_ERR_APP_CALLBACK);
+            PHYSFS_setErrorCode(PHYSFS_ERR_APP_CALLBACK, dv);
     } /* while */
 
     closedir(dir);
@@ -149,15 +149,15 @@ PHYSFS_EnumerateCallbackResult __PHYSFS_platformEnumerate(const char *dirname,
 } /* __PHYSFS_platformEnumerate */
 
 
-int __PHYSFS_platformMkDir(const char *path)
+int __PHYSFS_platformMkDir(const char *path, const unsigned char dv)
 {
     const int rc = mkdir(path, S_IRWXU);
-    BAIL_IF(rc == -1, errcodeFromErrno(), 0);
+    BAIL_IF(rc == -1, errcodeFromErrno(), 0, dv);
     return 1;
 } /* __PHYSFS_platformMkDir */
 
 
-static void *doOpen(const char *filename, int mode)
+static void *doOpen(const char *filename, int mode, const unsigned char dv)
 {
     const int appending = (mode & O_APPEND);
     int fd;
@@ -168,7 +168,7 @@ static void *doOpen(const char *filename, int mode)
     mode &= ~O_APPEND;
 
     fd = open(filename, mode, S_IRUSR | S_IWUSR);
-    BAIL_IF(fd < 0, errcodeFromErrno(), NULL);
+    BAIL_IF(fd < 0, errcodeFromErrno(), NULL, dv);
 
     if (appending)
     {
@@ -176,15 +176,15 @@ static void *doOpen(const char *filename, int mode)
         {
             const int err = errno;
             close(fd);
-            BAIL(errcodeFromErrnoError(err), NULL);
+            BAIL(errcodeFromErrnoError(err), NULL, dv);
         } /* if */
     } /* if */
 
-    retval = (int *) allocator.Malloc(sizeof (int));
+    retval = (int *) allocator[dv].Malloc(sizeof (int), dv);
     if (!retval)
     {
         close(fd);
-        BAIL(PHYSFS_ERR_OUT_OF_MEMORY, NULL);
+        BAIL(PHYSFS_ERR_OUT_OF_MEMORY, NULL, dv);
     } /* if */
 
     *retval = fd;
@@ -192,35 +192,35 @@ static void *doOpen(const char *filename, int mode)
 } /* doOpen */
 
 
-void *__PHYSFS_platformOpenRead(const char *filename)
+void *__PHYSFS_platformOpenRead(const char *filename, const unsigned char dv)
 {
-    return doOpen(filename, O_RDONLY);
+    return doOpen(filename, O_RDONLY, dv);
 } /* __PHYSFS_platformOpenRead */
 
 
-void *__PHYSFS_platformOpenWrite(const char *filename)
+void *__PHYSFS_platformOpenWrite(const char *filename, const unsigned char dv)
 {
-    return doOpen(filename, O_WRONLY | O_CREAT | O_TRUNC);
+    return doOpen(filename, O_WRONLY | O_CREAT | O_TRUNC, dv);
 } /* __PHYSFS_platformOpenWrite */
 
 
-void *__PHYSFS_platformOpenAppend(const char *filename)
+void *__PHYSFS_platformOpenAppend(const char *filename, const unsigned char dv)
 {
-    return doOpen(filename, O_WRONLY | O_CREAT | O_APPEND);
+    return doOpen(filename, O_WRONLY | O_CREAT | O_APPEND, dv);
 } /* __PHYSFS_platformOpenAppend */
 
 
 PHYSFS_sint64 __PHYSFS_platformRead(void *opaque, void *buffer,
-                                    PHYSFS_uint64 len)
+                                    PHYSFS_uint64 len, const unsigned char dv)
 {
     const int fd = *((int *) opaque);
     ssize_t rc = 0;
 
     if (!__PHYSFS_ui64FitsAddressSpace(len))
-        BAIL(PHYSFS_ERR_INVALID_ARGUMENT, -1);
+        BAIL(PHYSFS_ERR_INVALID_ARGUMENT, -1, dv);
 
     rc = read(fd, buffer, (size_t) len);
-    BAIL_IF(rc == -1, errcodeFromErrno(), -1);
+    BAIL_IF(rc == -1, errcodeFromErrno(), -1, dv);
     assert(rc >= 0);
     assert(rc <= len);
     return (PHYSFS_sint64) rc;
@@ -228,79 +228,79 @@ PHYSFS_sint64 __PHYSFS_platformRead(void *opaque, void *buffer,
 
 
 PHYSFS_sint64 __PHYSFS_platformWrite(void *opaque, const void *buffer,
-                                     PHYSFS_uint64 len)
+                                     PHYSFS_uint64 len, const unsigned char dv)
 {
     const int fd = *((int *) opaque);
     ssize_t rc = 0;
 
     if (!__PHYSFS_ui64FitsAddressSpace(len))
-        BAIL(PHYSFS_ERR_INVALID_ARGUMENT, -1);
+        BAIL(PHYSFS_ERR_INVALID_ARGUMENT, -1, dv);
 
     rc = write(fd, (void *) buffer, (size_t) len);
-    BAIL_IF(rc == -1, errcodeFromErrno(), rc);
+    BAIL_IF(rc == -1, errcodeFromErrno(), rc, dv);
     assert(rc >= 0);
     assert(rc <= len);
     return (PHYSFS_sint64) rc;
 } /* __PHYSFS_platformWrite */
 
 
-int __PHYSFS_platformSeek(void *opaque, PHYSFS_uint64 pos)
+int __PHYSFS_platformSeek(void *opaque, PHYSFS_uint64 pos, const unsigned char dv)
 {
     const int fd = *((int *) opaque);
     const off_t rc = lseek(fd, (off_t) pos, SEEK_SET);
-    BAIL_IF(rc == -1, errcodeFromErrno(), 0);
+    BAIL_IF(rc == -1, errcodeFromErrno(), 0, dv);
     return 1;
 } /* __PHYSFS_platformSeek */
 
 
-PHYSFS_sint64 __PHYSFS_platformTell(void *opaque)
+PHYSFS_sint64 __PHYSFS_platformTell(void *opaque, const unsigned char dv)
 {
     const int fd = *((int *) opaque);
     PHYSFS_sint64 retval;
     retval = (PHYSFS_sint64) lseek(fd, 0, SEEK_CUR);
-    BAIL_IF(retval == -1, errcodeFromErrno(), -1);
+    BAIL_IF(retval == -1, errcodeFromErrno(), -1, dv);
     return retval;
 } /* __PHYSFS_platformTell */
 
 
-PHYSFS_sint64 __PHYSFS_platformFileLength(void *opaque)
+PHYSFS_sint64 __PHYSFS_platformFileLength(void *opaque, const unsigned char dv)
 {
     const int fd = *((int *) opaque);
     struct stat statbuf;
-    BAIL_IF(fstat(fd, &statbuf) == -1, errcodeFromErrno(), -1);
+    BAIL_IF(fstat(fd, &statbuf) == -1, errcodeFromErrno(), -1, dv);
     return ((PHYSFS_sint64) statbuf.st_size);
 } /* __PHYSFS_platformFileLength */
 
 
-int __PHYSFS_platformFlush(void *opaque)
+int __PHYSFS_platformFlush(void *opaque, const unsigned char dv)
 {
     const int fd = *((int *) opaque);
     if ((fcntl(fd, F_GETFL) & O_ACCMODE) != O_RDONLY)
-        BAIL_IF(fsync(fd) == -1, errcodeFromErrno(), 0);
+        BAIL_IF(fsync(fd) == -1, errcodeFromErrno(), 0, dv);
     return 1;
 } /* __PHYSFS_platformFlush */
 
 
-void __PHYSFS_platformClose(void *opaque)
+void __PHYSFS_platformClose(void *opaque, const unsigned char dv)
 {
     const int fd = *((int *) opaque);
     (void) close(fd);  /* we don't check this. You should have used flush! */
-    allocator.Free(opaque);
+    allocator[dv].Free(opaque, dv);
 } /* __PHYSFS_platformClose */
 
 
-int __PHYSFS_platformDelete(const char *path)
+int __PHYSFS_platformDelete(const char *path, const unsigned char dv)
 {
-    BAIL_IF(remove(path) == -1, errcodeFromErrno(), 0);
+    BAIL_IF(remove(path) == -1, errcodeFromErrno(), 0, dv);
     return 1;
 } /* __PHYSFS_platformDelete */
 
 
-int __PHYSFS_platformStat(const char *fname, PHYSFS_Stat *st, const int follow)
+int __PHYSFS_platformStat(const char *fname, PHYSFS_Stat *st, const int follow, const unsigned char dv)
 {
     struct stat statbuf;
     const int rc = follow ? stat(fname, &statbuf) : lstat(fname, &statbuf);
-    BAIL_IF(rc == -1, errcodeFromErrno(), 0);
+    BAIL_IF(rc == -1, errcodeFromErrno(), 0, dv);
 
     if (S_ISREG(statbuf.st_mode))
     {
@@ -349,16 +349,16 @@ void *__PHYSFS_platformGetThreadID(void)
 } /* __PHYSFS_platformGetThreadID */
 
 
-void *__PHYSFS_platformCreateMutex(void)
+void *__PHYSFS_platformCreateMutex(const unsigned char dv)
 {
     int rc;
-    PthreadMutex *m = (PthreadMutex *) allocator.Malloc(sizeof (PthreadMutex));
-    BAIL_IF(!m, PHYSFS_ERR_OUT_OF_MEMORY, NULL);
+    PthreadMutex *m = (PthreadMutex *) allocator[dv].Malloc(sizeof (PthreadMutex), dv);
+    BAIL_IF(!m, PHYSFS_ERR_OUT_OF_MEMORY, NULL, dv);
     rc = pthread_mutex_init(&m->mutex, NULL);
     if (rc != 0)
     {
-        allocator.Free(m);
-        BAIL(PHYSFS_ERR_OS_ERROR, NULL);
+        allocator[dv].Free(m, dv);
+        BAIL(PHYSFS_ERR_OS_ERROR, NULL, dv);
     } /* if */
 
     m->count = 0;
@@ -367,7 +367,7 @@ void *__PHYSFS_platformCreateMutex(void)
 } /* __PHYSFS_platformCreateMutex */
 
 
-void __PHYSFS_platformDestroyMutex(void *mutex)
+void __PHYSFS_platformDestroyMutex(void *mutex, const unsigned char dv)
 {
     PthreadMutex *m = (PthreadMutex *) mutex;
 
@@ -376,7 +376,7 @@ void __PHYSFS_platformDestroyMutex(void *mutex)
         pthread_mutex_unlock(&m->mutex);
 
     pthread_mutex_destroy(&m->mutex);
-    allocator.Free(m);
+    allocator[dv].Free(m, dv);
 } /* __PHYSFS_platformDestroyMutex */
 
 
