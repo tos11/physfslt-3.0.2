@@ -11,34 +11,6 @@
 #define __PHYSICSFS_INTERNAL__
 #include "physfs_internal.h"
 
-#if defined(_MSC_VER)
-#include <stdarg.h>
-
-/* this code came from https://stackoverflow.com/a/8712996 */
-int __PHYSFS_msvc_vsnprintf(char *outBuf, size_t size, const char *format, va_list ap)
-{
-    int count = -1;
-
-    if (size != 0)
-        count = _vsnprintf_s(outBuf, size, _TRUNCATE, format, ap);
-    if (count == -1)
-        count = _vscprintf(format, ap);
-
-    return count;
-}
-
-int __PHYSFS_msvc_snprintf(char *outBuf, size_t size, const char *format, ...)
-{
-    int count;
-    va_list ap;
-
-    va_start(ap, format);
-    count = __PHYSFS_msvc_vsnprintf(outBuf, size, format, ap);
-    va_end(ap);
-
-    return count;
-}
-#endif
 
 
 typedef struct __PHYSFS_DIRHANDLE__
@@ -83,8 +55,6 @@ static char *baseDir = NULL;
 static char *userDir = NULL;
 static char *prefDir = NULL;
 static int allowSymLinks = 0;
-static PHYSFS_Archiver **archivers = NULL;
-static PHYSFS_ArchiveInfo **archiveInfo = NULL;
 static volatile size_t numArchivers = 0;
 
 /* mutexes ... */
@@ -235,179 +205,6 @@ createNativeIo_failed:
     if (io != NULL) allocator.Free(io);
     return NULL;
 } /* __PHYSFS_createNativeIo */
-
-
-/* PHYSFS_Io implementation for i/o to a memory buffer... */
-
-typedef struct __PHYSFS_MemoryIoInfo
-{
-    const PHYSFS_uint8 *buf;
-    PHYSFS_uint64 len;
-    PHYSFS_uint64 pos;
-    PHYSFS_Io *parent;
-    int refcount;
-    void (*destruct)(void *);
-} MemoryIoInfo;
-
-static PHYSFS_sint64 memoryIo_read(PHYSFS_Io *io, void *buf, PHYSFS_uint64 len)
-{
-    MemoryIoInfo *info = (MemoryIoInfo *) io->opaque;
-    const PHYSFS_uint64 avail = info->len - info->pos;
-    assert(avail <= info->len);
-
-    if (avail == 0)
-        return 0;  /* we're at EOF; nothing to do. */
-
-    if (len > avail)
-        len = avail;
-
-    memcpy(buf, info->buf + info->pos, (size_t) len);
-    info->pos += len;
-    return len;
-} /* memoryIo_read */
-
-static PHYSFS_sint64 memoryIo_write(PHYSFS_Io *io, const void *buffer,
-                                    PHYSFS_uint64 len)
-{
-    BAIL(PHYSFS_ERR_OPEN_FOR_READING, -1);
-} /* memoryIo_write */
-
-static int memoryIo_seek(PHYSFS_Io *io, PHYSFS_uint64 offset)
-{
-    MemoryIoInfo *info = (MemoryIoInfo *) io->opaque;
-    BAIL_IF(offset > info->len, PHYSFS_ERR_PAST_EOF, 0);
-    info->pos = offset;
-    return 1;
-} /* memoryIo_seek */
-
-static PHYSFS_sint64 memoryIo_tell(PHYSFS_Io *io)
-{
-    const MemoryIoInfo *info = (MemoryIoInfo *) io->opaque;
-    return (PHYSFS_sint64) info->pos;
-} /* memoryIo_tell */
-
-static PHYSFS_sint64 memoryIo_length(PHYSFS_Io *io)
-{
-    const MemoryIoInfo *info = (MemoryIoInfo *) io->opaque;
-    return (PHYSFS_sint64) info->len;
-} /* memoryIo_length */
-
-static PHYSFS_Io *memoryIo_duplicate(PHYSFS_Io *io)
-{
-    MemoryIoInfo *info = (MemoryIoInfo *) io->opaque;
-    MemoryIoInfo *newinfo = NULL;
-    PHYSFS_Io *parent = info->parent;
-    PHYSFS_Io *retval = NULL;
-
-    /* avoid deep copies. */
-    assert((!parent) || (!((MemoryIoInfo *) parent->opaque)->parent) );
-
-    /* share the buffer between duplicates. */
-    if (parent != NULL)  /* dup the parent, increment its refcount. */
-        return parent->duplicate(parent);
-
-    /* we're the parent. */
-
-    retval = (PHYSFS_Io *) allocator.Malloc(sizeof (PHYSFS_Io));
-    BAIL_IF(!retval, PHYSFS_ERR_OUT_OF_MEMORY, NULL);
-    newinfo = (MemoryIoInfo *) allocator.Malloc(sizeof (MemoryIoInfo));
-    if (!newinfo)
-    {
-        allocator.Free(retval);
-        BAIL(PHYSFS_ERR_OUT_OF_MEMORY, NULL);
-    } /* if */
-
-    __PHYSFS_ATOMIC_INCR(&info->refcount);
-
-    memset(newinfo, '\0', sizeof (*info));
-    newinfo->buf = info->buf;
-    newinfo->len = info->len;
-    newinfo->pos = 0;
-    newinfo->parent = io;
-    newinfo->refcount = 0;
-    newinfo->destruct = NULL;
-
-    memcpy(retval, io, sizeof (*retval));
-    retval->opaque = newinfo;
-    return retval;
-} /* memoryIo_duplicate */
-
-static int memoryIo_flush(PHYSFS_Io *io) { return 1;  /* it's read-only. */ }
-
-static void memoryIo_destroy(PHYSFS_Io *io)
-{
-    MemoryIoInfo *info = (MemoryIoInfo *) io->opaque;
-    PHYSFS_Io *parent = info->parent;
-
-    if (parent != NULL)
-    {
-        assert(info->buf == ((MemoryIoInfo *) info->parent->opaque)->buf);
-        assert(info->len == ((MemoryIoInfo *) info->parent->opaque)->len);
-        assert(info->refcount == 0);
-        assert(info->destruct == NULL);
-        allocator.Free(info);
-        allocator.Free(io);
-        parent->destroy(parent);  /* decrements refcount. */
-        return;
-    } /* if */
-
-    /* we _are_ the parent. */
-    assert(info->refcount > 0);  /* even in a race, we hold a reference. */
-
-    if (__PHYSFS_ATOMIC_DECR(&info->refcount) == 0)
-    {
-        void (*destruct)(void *) = info->destruct;
-        void *buf = (void *) info->buf;
-        io->opaque = NULL;  /* kill this here in case of race. */
-        allocator.Free(info);
-        allocator.Free(io);
-        if (destruct != NULL)
-            destruct(buf);
-    } /* if */
-} /* memoryIo_destroy */
-
-
-static const PHYSFS_Io __PHYSFS_memoryIoInterface =
-{
-    CURRENT_PHYSFS_IO_API_VERSION, NULL,
-    memoryIo_read,
-    memoryIo_write,
-    memoryIo_seek,
-    memoryIo_tell,
-    memoryIo_length,
-    memoryIo_duplicate,
-    memoryIo_flush,
-    memoryIo_destroy
-};
-
-PHYSFS_Io *__PHYSFS_createMemoryIo(const void *buf, PHYSFS_uint64 len,
-                                   void (*destruct)(void *))
-{
-    PHYSFS_Io *io = NULL;
-    MemoryIoInfo *info = NULL;
-
-    io = (PHYSFS_Io *) allocator.Malloc(sizeof (PHYSFS_Io));
-    GOTO_IF(!io, PHYSFS_ERR_OUT_OF_MEMORY, createMemoryIo_failed);
-    info = (MemoryIoInfo *) allocator.Malloc(sizeof (MemoryIoInfo));
-    GOTO_IF(!info, PHYSFS_ERR_OUT_OF_MEMORY, createMemoryIo_failed);
-
-    memset(info, '\0', sizeof (*info));
-    info->buf = (const PHYSFS_uint8 *) buf;
-    info->len = len;
-    info->pos = 0;
-    info->parent = NULL;
-    info->refcount = 1;
-    info->destruct = destruct;
-
-    memcpy(io, &__PHYSFS_memoryIoInterface, sizeof (*io));
-    io->opaque = info;
-    return io;
-
-createMemoryIo_failed:
-    if (info != NULL) allocator.Free(info);
-    if (io != NULL) allocator.Free(io);
-    return NULL;
-} /* __PHYSFS_createMemoryIo */
 
 
 /* PHYSFS_Io implementation for i/o to a PHYSFS_File... */
@@ -896,30 +693,6 @@ static DirHandle *openDirectory(PHYSFS_Io *io, const char *d, int forWriting)
         created_io = 1;
     } /* if */
 
-    ext = find_filename_extension(d);
-    if (ext != NULL)
-    {
-        /* Look for archivers with matching file extensions first... */
-        for (i = archivers; (*i != NULL) && (retval == NULL) && !claimed; i++)
-        {
-            if (PHYSFS_utf8stricmp(ext, (*i)->info.extension) == 0)
-                retval = tryOpenDir(io, *i, d, forWriting, &claimed);
-        } /* for */
-
-        /* failing an exact file extension match, try all the others... */
-        for (i = archivers; (*i != NULL) && (retval == NULL) && !claimed; i++)
-        {
-            if (PHYSFS_utf8stricmp(ext, (*i)->info.extension) != 0)
-                retval = tryOpenDir(io, *i, d, forWriting, &claimed);
-        } /* for */
-    } /* if */
-
-    else  /* no extension? Try them all. */
-    {
-        for (i = archivers; (*i != NULL) && (retval == NULL) && !claimed; i++)
-            retval = tryOpenDir(io, *i, d, forWriting, &claimed);
-    } /* else */
-
     errcode = currentErrorCode();
 
     if ((!retval) && (created_io))
@@ -1141,54 +914,6 @@ initializeMutexes_failed:
 } /* initializeMutexes */
 
 
-static int doRegisterArchiver(const PHYSFS_Archiver *_archiver);
-
-static int initStaticArchivers(void)
-{
-    #define REGISTER_STATIC_ARCHIVER(arc) { \
-        if (!doRegisterArchiver(&__PHYSFS_Archiver_##arc)) { \
-            return 0; \
-        } \
-    }
-
-    #if PHYSFS_SUPPORTS_ZIP
-        REGISTER_STATIC_ARCHIVER(ZIP);
-    #endif
-    #if PHYSFS_SUPPORTS_7Z
-        SZIP_global_init();
-        REGISTER_STATIC_ARCHIVER(7Z);
-    #endif
-    #if PHYSFS_SUPPORTS_GRP
-        REGISTER_STATIC_ARCHIVER(GRP);
-    #endif
-    #if PHYSFS_SUPPORTS_QPAK
-        REGISTER_STATIC_ARCHIVER(QPAK);
-    #endif
-    #if PHYSFS_SUPPORTS_HOG
-        REGISTER_STATIC_ARCHIVER(HOG);
-    #endif
-    #if PHYSFS_SUPPORTS_MVL
-        REGISTER_STATIC_ARCHIVER(MVL);
-    #endif
-    #if PHYSFS_SUPPORTS_WAD
-        REGISTER_STATIC_ARCHIVER(WAD);
-    #endif
-    #if PHYSFS_SUPPORTS_SLB
-        REGISTER_STATIC_ARCHIVER(SLB);
-    #endif
-    #if PHYSFS_SUPPORTS_ISO9660
-        REGISTER_STATIC_ARCHIVER(ISO9660);
-    #endif
-    #if PHYSFS_SUPPORTS_VDF
-        REGISTER_STATIC_ARCHIVER(VDF)
-    #endif
-
-    #undef REGISTER_STATIC_ARCHIVER
-
-    return 1;
-} /* initStaticArchivers */
-
-
 static void setDefaultAllocator(void);
 static int doDeinit(void);
 
@@ -1200,12 +925,6 @@ int PHYSFS_init(const char *argv0)
         setDefaultAllocator();
 
     if ((allocator.Init != NULL) && (!allocator.Init())) return 0;
-
-    if (!__PHYSFS_platformInit())
-    {
-        if (allocator.Deinit != NULL) allocator.Deinit();
-        return 0;
-    } /* if */
 
     /* everything below here can be cleaned up safely by doDeinit(). */
 
@@ -1220,8 +939,6 @@ int PHYSFS_init(const char *argv0)
     /* Platform layer is required to append a dirsep. */
     assert(baseDir[strlen(baseDir) - 1] == __PHYSFS_platformDirSeparator);
     assert(userDir[strlen(userDir) - 1] == __PHYSFS_platformDirSeparator);
-
-    if (!initStaticArchivers()) goto initFailed;
 
     initialized = 1;
 
@@ -1282,70 +999,12 @@ static void freeSearchPath(void)
 } /* freeSearchPath */
 
 
-/* MAKE SURE you hold stateLock before calling this! */
-static int archiverInUse(const PHYSFS_Archiver *arc, const DirHandle *list)
-{
-    const DirHandle *i;
-    for (i = list; i != NULL; i = i->next)
-    {
-        if (i->funcs == arc)
-            return 1;
-    } /* for */
-
-    return 0;  /* not in use */
-} /* archiverInUse */
-
-
-/* MAKE SURE you hold stateLock before calling this! */
-static int doDeregisterArchiver(const size_t idx)
-{
-    const size_t len = (numArchivers - idx) * sizeof (void *);
-    PHYSFS_ArchiveInfo *info = archiveInfo[idx];
-    PHYSFS_Archiver *arc = archivers[idx];
-
-    /* make sure nothing is still using this archiver */
-    if (archiverInUse(arc, searchPath) || archiverInUse(arc, writeDir))
-        BAIL(PHYSFS_ERR_FILES_STILL_OPEN, 0);
-
-    allocator.Free((void *) info->extension);
-    allocator.Free((void *) info->description);
-    allocator.Free((void *) info->author);
-    allocator.Free((void *) info->url);
-    allocator.Free((void *) arc);
-
-    memmove(&archiveInfo[idx], &archiveInfo[idx+1], len);
-    memmove(&archivers[idx], &archivers[idx+1], len);
-
-    assert(numArchivers > 0);
-    numArchivers--;
-
-    return 1;
-} /* doDeregisterArchiver */
-
-
-/* Does NOT hold the state lock; we're shutting down. */
-static void freeArchivers(void)
-{
-    while (numArchivers > 0)
-    {
-        if (!doDeregisterArchiver(numArchivers - 1))
-            assert(!"nothing should be mounted during shutdown.");
-    } /* while */
-
-    allocator.Free(archivers);
-    allocator.Free(archiveInfo);
-    archivers = NULL;
-    archiveInfo = NULL;
-} /* freeArchivers */
-
-
 static int doDeinit(void)
 {
     closeFileHandleList(&openWriteList);
     BAIL_IF(!PHYSFS_setWriteDir(NULL), PHYSFS_ERR_FILES_STILL_OPEN, 0);
 
     freeSearchPath();
-    freeArchivers();
     freeErrorStates();
 
     if (baseDir != NULL)
@@ -1366,17 +1025,6 @@ static int doDeinit(void)
         prefDir = NULL;
     } /* if */
 
-    if (archiveInfo != NULL)
-    {
-        allocator.Free(archiveInfo);
-        archiveInfo = NULL;
-    } /* if */
-
-    if (archivers != NULL)
-    {
-        allocator.Free(archivers);
-        archivers = NULL;
-    } /* if */
 
     allowSymLinks = 0;
     initialized = 0;
@@ -1388,8 +1036,6 @@ static int doDeinit(void)
         allocator.Deinit();
 
     errorLock = stateLock = NULL;
-
-    __PHYSFS_platformDeinit();
 
     return 1;
 } /* doDeinit */
@@ -1426,132 +1072,6 @@ PHYSFS_uint32 __PHYSFS_hashString(const char *str, size_t len)
 } /* __PHYSFS_hashString */
 
 
-/* MAKE SURE you hold stateLock before calling this! */
-static int doRegisterArchiver(const PHYSFS_Archiver *_archiver)
-{
-    const PHYSFS_uint32 maxver = CURRENT_PHYSFS_ARCHIVER_API_VERSION;
-    const size_t len = (numArchivers + 2) * sizeof (void *);
-    PHYSFS_Archiver *archiver = NULL;
-    PHYSFS_ArchiveInfo *info = NULL;
-    const char *ext = NULL;
-    void *ptr = NULL;
-    size_t i;
-
-    BAIL_IF(!_archiver, PHYSFS_ERR_INVALID_ARGUMENT, 0);
-    BAIL_IF(_archiver->version > maxver, PHYSFS_ERR_UNSUPPORTED, 0);
-    BAIL_IF(!_archiver->info.extension, PHYSFS_ERR_INVALID_ARGUMENT, 0);
-    BAIL_IF(!_archiver->info.description, PHYSFS_ERR_INVALID_ARGUMENT, 0);
-    BAIL_IF(!_archiver->info.author, PHYSFS_ERR_INVALID_ARGUMENT, 0);
-    BAIL_IF(!_archiver->info.url, PHYSFS_ERR_INVALID_ARGUMENT, 0);
-    BAIL_IF(!_archiver->openArchive, PHYSFS_ERR_INVALID_ARGUMENT, 0);
-    BAIL_IF(!_archiver->enumerate, PHYSFS_ERR_INVALID_ARGUMENT, 0);
-    BAIL_IF(!_archiver->openRead, PHYSFS_ERR_INVALID_ARGUMENT, 0);
-    BAIL_IF(!_archiver->openWrite, PHYSFS_ERR_INVALID_ARGUMENT, 0);
-    BAIL_IF(!_archiver->openAppend, PHYSFS_ERR_INVALID_ARGUMENT, 0);
-    BAIL_IF(!_archiver->remove, PHYSFS_ERR_INVALID_ARGUMENT, 0);
-    BAIL_IF(!_archiver->mkdir, PHYSFS_ERR_INVALID_ARGUMENT, 0);
-    BAIL_IF(!_archiver->closeArchive, PHYSFS_ERR_INVALID_ARGUMENT, 0);
-    BAIL_IF(!_archiver->stat, PHYSFS_ERR_INVALID_ARGUMENT, 0);
-
-    ext = _archiver->info.extension;
-    for (i = 0; i < numArchivers; i++)
-    {
-        if (PHYSFS_utf8stricmp(archiveInfo[i]->extension, ext) == 0)
-            BAIL(PHYSFS_ERR_DUPLICATE, 0);
-    } /* for */
-
-    /* make a copy of the data. */
-    archiver = (PHYSFS_Archiver *) allocator.Malloc(sizeof (*archiver));
-    GOTO_IF(!archiver, PHYSFS_ERR_OUT_OF_MEMORY, regfailed);
-
-    /* Must copy sizeof (OLD_VERSION_OF_STRUCT) when version changes! */
-    memcpy(archiver, _archiver, sizeof (*archiver));
-
-    info = (PHYSFS_ArchiveInfo *) &archiver->info;
-    memset(info, '\0', sizeof (*info));  /* NULL in case an alloc fails. */
-    #define CPYSTR(item) \
-        info->item = __PHYSFS_strdup(_archiver->info.item); \
-        GOTO_IF(!info->item, PHYSFS_ERR_OUT_OF_MEMORY, regfailed);
-    CPYSTR(extension);
-    CPYSTR(description);
-    CPYSTR(author);
-    CPYSTR(url);
-    info->supportsSymlinks = _archiver->info.supportsSymlinks;
-    #undef CPYSTR
-
-    ptr = allocator.Realloc(archiveInfo, len);
-    GOTO_IF(!ptr, PHYSFS_ERR_OUT_OF_MEMORY, regfailed);
-    archiveInfo = (PHYSFS_ArchiveInfo **) ptr;
-
-    ptr = allocator.Realloc(archivers, len);
-    GOTO_IF(!ptr, PHYSFS_ERR_OUT_OF_MEMORY, regfailed);
-    archivers = (PHYSFS_Archiver **) ptr;
-
-    archiveInfo[numArchivers] = info;
-    archiveInfo[numArchivers + 1] = NULL;
-
-    archivers[numArchivers] = archiver;
-    archivers[numArchivers + 1] = NULL;
-
-    numArchivers++;
-
-    return 1;
-
-regfailed:
-    if (info != NULL)
-    {
-        allocator.Free((void *) info->extension);
-        allocator.Free((void *) info->description);
-        allocator.Free((void *) info->author);
-        allocator.Free((void *) info->url);
-    } /* if */
-    allocator.Free(archiver);
-
-    return 0;
-} /* doRegisterArchiver */
-
-
-int PHYSFS_registerArchiver(const PHYSFS_Archiver *archiver)
-{
-    int retval;
-    BAIL_IF(!initialized, PHYSFS_ERR_NOT_INITIALIZED, 0);
-    __PHYSFS_platformGrabMutex(stateLock);
-    retval = doRegisterArchiver(archiver);
-    __PHYSFS_platformReleaseMutex(stateLock);
-    return retval;
-} /* PHYSFS_registerArchiver */
-
-
-int PHYSFS_deregisterArchiver(const char *ext)
-{
-    size_t i;
-
-    BAIL_IF(!initialized, PHYSFS_ERR_NOT_INITIALIZED, 0);
-    BAIL_IF(!ext, PHYSFS_ERR_INVALID_ARGUMENT, 0);
-
-    __PHYSFS_platformGrabMutex(stateLock);
-    for (i = 0; i < numArchivers; i++)
-    {
-        if (PHYSFS_utf8stricmp(archiveInfo[i]->extension, ext) == 0)
-        {
-            const int retval = doDeregisterArchiver(i);
-            __PHYSFS_platformReleaseMutex(stateLock);
-            return retval;
-        } /* if */
-    } /* for */
-    __PHYSFS_platformReleaseMutex(stateLock);
-
-    BAIL(PHYSFS_ERR_NOT_FOUND, 0);
-} /* PHYSFS_deregisterArchiver */
-
-
-const PHYSFS_ArchiveInfo **PHYSFS_supportedArchiveTypes(void)
-{
-    BAIL_IF(!initialized, PHYSFS_ERR_NOT_INITIALIZED, NULL);
-    return (const PHYSFS_ArchiveInfo **) archiveInfo;
-} /* PHYSFS_supportedArchiveTypes */
-
-
 void PHYSFS_freeList(void *list)
 {
     void **i;
@@ -1570,18 +1090,6 @@ const char *PHYSFS_getDirSeparator(void)
     static char retval[2] = { __PHYSFS_platformDirSeparator, '\0' };
     return retval;
 } /* PHYSFS_getDirSeparator */
-
-
-char **PHYSFS_getCdRomDirs(void)
-{
-    return doEnumStringList(__PHYSFS_platformDetectAvailableCDs);
-} /* PHYSFS_getCdRomDirs */
-
-
-void PHYSFS_getCdRomDirsCallback(PHYSFS_StringCallback callback, void *data)
-{
-    __PHYSFS_platformDetectAvailableCDs(callback, data);
-} /* PHYSFS_getCdRomDirsCallback */
 
 
 const char *PHYSFS_getPrefDir(const char *org, const char *app)
@@ -1735,31 +1243,6 @@ int PHYSFS_mountIo(PHYSFS_Io *io, const char *fname,
     BAIL_IF(io->version != 0, PHYSFS_ERR_UNSUPPORTED, 0);
     return doMount(io, fname, mountPoint, appendToPath);
 } /* PHYSFS_mountIo */
-
-
-int PHYSFS_mountMemory(const void *buf, PHYSFS_uint64 len, void (*del)(void *),
-                       const char *fname, const char *mountPoint,
-                       int appendToPath)
-{
-    int retval = 0;
-    PHYSFS_Io *io = NULL;
-
-    BAIL_IF(!buf, PHYSFS_ERR_INVALID_ARGUMENT, 0);
-    BAIL_IF(!fname, PHYSFS_ERR_INVALID_ARGUMENT, 0);
-
-    io = __PHYSFS_createMemoryIo(buf, len, del);
-    BAIL_IF_ERRPASS(!io, 0);
-    retval = doMount(io, fname, mountPoint, appendToPath);
-    if (!retval)
-    {
-        /* docs say not to call (del) in case of failure, so cheat. */
-        MemoryIoInfo *info = (MemoryIoInfo *) io->opaque;
-        info->destruct = NULL;
-        io->destroy(io);
-    } /* if */
-
-    return retval;
-} /* PHYSFS_mountMemory */
 
 
 int PHYSFS_mountHandle(PHYSFS_File *file, const char *fname,
@@ -1941,16 +1424,6 @@ int PHYSFS_setSaneConfig(const char *organization, const char *appName,
 
     /* Put base path on search path... */
     PHYSFS_mount(basedir, NULL, 1);
-
-    /* handle CD-ROMs... */
-    if (includeCdRoms)
-    {
-        char **cds = PHYSFS_getCdRomDirs();
-        char **i;
-        for (i = cds; *i != NULL; i++)
-            PHYSFS_mount(*i, NULL, 1);
-        PHYSFS_freeList(cds);
-    } /* if */
 
     /* Root out archives, and add them to search path... */
     if (archiveExt != NULL)

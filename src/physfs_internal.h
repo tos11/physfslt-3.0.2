@@ -77,20 +77,7 @@ extern "C" {
 #pragma GCC visibility push(hidden)
 #endif
 
-/* These are the build-in archivers. We list them all as "extern" here without
-   #ifdefs to keep it tidy, but obviously you need to make sure these are
-   wrapped in PHYSFS_SUPPORTS_* checks before actually referencing them. */
 extern const PHYSFS_Archiver __PHYSFS_Archiver_DIR;
-extern const PHYSFS_Archiver __PHYSFS_Archiver_ZIP;
-extern const PHYSFS_Archiver __PHYSFS_Archiver_7Z;
-extern const PHYSFS_Archiver __PHYSFS_Archiver_GRP;
-extern const PHYSFS_Archiver __PHYSFS_Archiver_QPAK;
-extern const PHYSFS_Archiver __PHYSFS_Archiver_HOG;
-extern const PHYSFS_Archiver __PHYSFS_Archiver_MVL;
-extern const PHYSFS_Archiver __PHYSFS_Archiver_WAD;
-extern const PHYSFS_Archiver __PHYSFS_Archiver_SLB;
-extern const PHYSFS_Archiver __PHYSFS_Archiver_ISO9660;
-extern const PHYSFS_Archiver __PHYSFS_Archiver_VDF;
 
 /* a real C99-compliant snprintf() is in Visual Studio 2015,
    but just use this everywhere for binary compatibility. */
@@ -167,44 +154,7 @@ void __PHYSFS_smallFree(void *ptr);
    want to avoid. But you can build with this #defined to 0 if you would
    like to turn off everything except a handful of things you opt into. */
 #ifndef PHYSFS_SUPPORTS_DEFAULT
-#define PHYSFS_SUPPORTS_DEFAULT 1
-#endif
-
-
-#ifndef PHYSFS_SUPPORTS_ZIP
-#define PHYSFS_SUPPORTS_ZIP PHYSFS_SUPPORTS_DEFAULT
-#endif
-#ifndef PHYSFS_SUPPORTS_7Z
-#define PHYSFS_SUPPORTS_7Z PHYSFS_SUPPORTS_DEFAULT
-#endif
-#ifndef PHYSFS_SUPPORTS_GRP
-#define PHYSFS_SUPPORTS_GRP PHYSFS_SUPPORTS_DEFAULT
-#endif
-#ifndef PHYSFS_SUPPORTS_HOG
-#define PHYSFS_SUPPORTS_HOG PHYSFS_SUPPORTS_DEFAULT
-#endif
-#ifndef PHYSFS_SUPPORTS_MVL
-#define PHYSFS_SUPPORTS_MVL PHYSFS_SUPPORTS_DEFAULT
-#endif
-#ifndef PHYSFS_SUPPORTS_WAD
-#define PHYSFS_SUPPORTS_WAD PHYSFS_SUPPORTS_DEFAULT
-#endif
-#ifndef PHYSFS_SUPPORTS_QPAK
-#define PHYSFS_SUPPORTS_QPAK PHYSFS_SUPPORTS_DEFAULT
-#endif
-#ifndef PHYSFS_SUPPORTS_SLB
-#define PHYSFS_SUPPORTS_SLB PHYSFS_SUPPORTS_DEFAULT
-#endif
-#ifndef PHYSFS_SUPPORTS_ISO9660
-#define PHYSFS_SUPPORTS_ISO9660 PHYSFS_SUPPORTS_DEFAULT
-#endif
-#ifndef PHYSFS_SUPPORTS_VDF
-#define PHYSFS_SUPPORTS_VDF PHYSFS_SUPPORTS_DEFAULT
-#endif
-
-#if PHYSFS_SUPPORTS_7Z
-/* 7zip support needs a global init function called at startup (no deinit). */
-extern void SZIP_global_init(void);
+#define PHYSFS_SUPPORTS_DEFAULT 0
 #endif
 
 /* The latest supported PHYSFS_Io::version value. */

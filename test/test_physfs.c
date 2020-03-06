@@ -54,30 +54,6 @@ static void output_versions(void)
 } /* output_versions */
 
 
-static void output_archivers(void)
-{
-    const PHYSFS_ArchiveInfo **rc = PHYSFS_supportedArchiveTypes();
-    const PHYSFS_ArchiveInfo **i;
-
-    printf("Supported archive types:\n");
-    if (*rc == NULL)
-        printf(" * Apparently, NONE!\n");
-    else
-    {
-        for (i = rc; *i != NULL; i++)
-        {
-            printf(" * %s: %s\n    Written by %s.\n    %s\n",
-                    (*i)->extension, (*i)->description,
-                    (*i)->author, (*i)->url);
-            printf("    %s symbolic links.\n",
-                    (*i)->supportsSymlinks ? "Supports" : "Does not support");
-        } /* for */
-    } /* else */
-
-    printf("\n");
-} /* output_archivers */
-
-
 static int cmd_quit(char *args)
 {
     return 0;
@@ -210,46 +186,6 @@ static int cmd_mount_internal(char *args, const MountType mnttype)
             PHYSFS_close(f);
     } /* else if */
 
-    else if (mnttype == MNTTYPE_MEMORY)
-    {
-        FILE *in = fopen(args, "rb");
-        void *buf = NULL;
-        long len = 0;
-
-        if (in == NULL)
-        {
-            printf("Failed to open %s to read into memory: %s.\n", args, strerror(errno));
-            return 1;
-        } /* if */
-
-        if ( (fseek(in, 0, SEEK_END) != 0) || ((len = ftell(in)) < 0) )
-        {
-            printf("Failed to find size of %s to read into memory: %s.\n", args, strerror(errno));
-            fclose(in);
-            return 1;
-        } /* if */
-
-        buf = malloc(len);
-        if (buf == NULL)
-        {
-            printf("Failed to allocate space to read %s into memory: %s.\n", args, strerror(errno));
-            fclose(in);
-            return 1;
-        } /* if */
-
-        if ((fseek(in, 0, SEEK_SET) != 0) || (fread(buf, len, 1, in) != 1))
-        {
-            printf("Failed to read %s into memory: %s.\n", args, strerror(errno));
-            fclose(in);
-            free(buf);
-            return 1;
-        } /* if */
-
-        fclose(in);
-
-        rc = PHYSFS_mountMemory(buf, len, freeBuf, args, mntpoint, appending);
-    } /* else */
-
     if (rc)
         printf("Successful.\n");
     else
@@ -346,27 +282,6 @@ static int cmd_getlasterror(char *args)
     printf("last error is [%s].\n", PHYSFS_getLastError());
     return 1;
 } /* cmd_getlasterror */
-
-
-static int cmd_getcdromdirs(char *args)
-{
-    char **rc = PHYSFS_getCdRomDirs();
-
-    if (rc == NULL)
-        printf("Failure. Reason: [%s].\n", PHYSFS_getLastError());
-    else
-    {
-        int dir_count;
-        char **i;
-        for (i = rc, dir_count = 0; *i != NULL; i++, dir_count++)
-            printf("%s\n", *i);
-
-        printf("\n total (%d) drives.\n", dir_count);
-        PHYSFS_freeList(rc);
-    } /* else */
-
-    return 1;
-} /* cmd_getcdromdirs */
 
 
 static int cmd_getsearchpath(char *args)
@@ -1314,7 +1229,6 @@ static const command_info commands[] =
     { "ls",             cmd_enumerate,      1, "<dirToEnumerate>"           },
     { "getlasterror",   cmd_getlasterror,   0, NULL                         },
     { "getdirsep",      cmd_getdirsep,      0, NULL                         },
-    { "getcdromdirs",   cmd_getcdromdirs,   0, NULL                         },
     { "getsearchpath",  cmd_getsearchpath,  0, NULL                         },
     { "getbasedir",     cmd_getbasedir,     0, NULL                         },
     { "getuserdir",     cmd_getuserdir,     0, NULL                         },
@@ -1537,7 +1451,6 @@ int main(int argc, char **argv)
     } /* if */
 
     output_versions();
-    output_archivers();
 
     open_history_file();
 
