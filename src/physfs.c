@@ -1054,8 +1054,8 @@ static int doDeinit(const unsigned char dv)
     allowSymLinks[dv] = 0;
     initialized[dv] = 0;
 
-    if (errorLock[dv]) __PHYSFS_platformDestroyMutex(errorLock,dv);
-    if (stateLock[dv]) __PHYSFS_platformDestroyMutex(stateLock,dv);
+    if (errorLock[dv]) __PHYSFS_platformDestroyMutex(errorLock[dv], dv);
+    if (stateLock[dv]) __PHYSFS_platformDestroyMutex(stateLock[dv], dv);
 
     if (allocator[dv].Deinit != NULL)
         allocator[dv].Deinit(dv);
